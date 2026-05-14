@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# HonestY
 
-## Getting Started
+A Next.js 15 + MongoDB e-commerce storefront, modeled on the layout/feel of the
+Shopify [Electrode demo](https://electrode-demo.myshopify.com).
 
-First, run the development server:
+Stack:
+- Next.js 16 (App Router) — JavaScript, **no TypeScript**
+- Tailwind CSS 4
+- MongoDB via Mongoose
+- NextAuth (credentials provider — email + password)
+- Client-side cart in `localStorage`
+- Stubbed checkout (saves an order to MongoDB; no real payments)
+
+## Quick start
 
 ```bash
+# 1. install
+npm install
+
+# 2. configure env
+cp .env.local.example .env.local
+# then edit .env.local and set MONGODB_URI + NEXTAUTH_SECRET
+
+# 3. (optional) seed the database
+npm run seed
+
+# 4. dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+> If you don't set `MONGODB_URI`, the storefront still works — it falls back to
+> the in-repo seed data in `data/products.js`. You only need MongoDB if you
+> want user accounts, login, or to place an order.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project layout
 
-## Learn More
+```
+app/
+  layout.js, page.js          home + root layout
+  products/                   /products + /products/[slug]
+  collections/[slug]/         category pages
+  cart/                       cart
+  checkout/                   stubbed checkout (auth required)
+  login/, register/           NextAuth credentials login + signup
+  api/auth/[...nextauth]/     NextAuth handler
+  api/register/               POST: create account
+  api/orders/                 POST: place an order (requires session)
+components/                   Header, Footer, ProductCard, AddToCartButton, Providers
+context/CartContext.js        client cart store (localStorage)
+lib/
+  mongodb.js                  mongoose connection cache
+  auth.js                     NextAuth config
+  products.js                 read products from DB or fall back to seed
+models/                       Product, User, Order (Mongoose schemas)
+data/products.js              seed catalogue (electronics theme)
+scripts/seed.js               wipes + reseeds products into MongoDB
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- All catalog images come from Unsplash and are configured under
+  `images.remotePatterns` in `next.config.mjs`.
+- Project uses `"type": "module"` so server-side scripts can use `import`.
+- To use a different image host, add it to `next.config.mjs`.
