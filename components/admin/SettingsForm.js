@@ -14,6 +14,26 @@ const DEFAULT_MINIS = [
 
 const ICON_OPTIONS = ["shipping", "returns", "secure", "support", "leaf", "phone", "shield", "star"];
 
+// A single cell in the hero layout map — shows the live image (or bg color)
+// plus a label so admins can see which field controls which spot.
+function BlueprintBox({ className = "", label, sub, image, color }) {
+  return (
+    <div
+      className={`relative rounded-lg overflow-hidden border border-gray-300 flex flex-col items-center justify-center text-center ${className}`}
+      style={{ backgroundColor: color || "#f3f4f6" }}
+    >
+      {image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />
+      )}
+      <div className="relative z-10 px-1">
+        <p className="text-[11px] font-bold text-[#1a2b4a] drop-shadow-sm bg-white/70 rounded px-1.5 py-0.5 inline-block">{label}</p>
+        {sub && <p className="text-[9px] text-[#1a2b4a]/80 mt-1 bg-white/60 rounded px-1 inline-block">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsForm({ initial }) {
   const router = useRouter();
   const [tab, setTab] = useState("store");
@@ -272,9 +292,31 @@ export default function SettingsForm({ initial }) {
 
       {tab === "hero" && (
         <div className="space-y-5">
+          {/* Visual blueprint: shows which field maps to which spot on the homepage hero grid. */}
+          <section className={SECTION}>
+            <h2 className="font-semibold">Layout map</h2>
+            <p className="text-xs text-gray-500">This is how the hero looks on the homepage. Each box shows your current image and which field controls it.</p>
+            <div className="grid grid-cols-4 grid-rows-2 gap-2 max-w-2xl" style={{ height: 260 }}>
+              {/* MAIN — left, 2 cols x 2 rows */}
+              <BlueprintBox
+                className="col-span-2 row-span-2"
+                label="Main hero"
+                sub="Main hero banner ↓"
+                image={form.heroImage}
+                color="#f5f1e8"
+              />
+              {/* Card 1 — top right */}
+              <BlueprintBox label="Card 1" sub="top-left small" image={form.miniBanners[0]?.image} color={form.miniBanners[0]?.bgColor} />
+              {/* Card 2 — top right */}
+              <BlueprintBox label="Card 2" sub="top-right small" image={form.miniBanners[1]?.image} color={form.miniBanners[1]?.bgColor} />
+              {/* Card 3 — wide bottom right, 2 cols */}
+              <BlueprintBox className="col-span-2" label="Card 3" sub="wide bottom" image={form.miniBanners[2]?.image} color={form.miniBanners[2]?.bgColor} />
+            </div>
+          </section>
+
           <section className={SECTION}>
             <h2 className="font-semibold">Main hero banner</h2>
-            <p className="text-xs text-gray-500">The large card at the top-left of the homepage.</p>
+            <p className="text-xs text-gray-500">The large card at the top-left of the homepage (the &ldquo;Main hero&rdquo; box above).</p>
             <div className="grid grid-cols-2 gap-3">
               <div><label className={LABEL}>Eyebrow (small text above title)</label><input className={FIELD} value={form.heroEyebrow} onChange={set("heroEyebrow")} /></div>
               <div><label className={LABEL}>Price line</label><input className={FIELD} value={form.heroPriceText} onChange={set("heroPriceText")} placeholder="Starting ৳8,900" /></div>
@@ -289,22 +331,33 @@ export default function SettingsForm({ initial }) {
 
           <section className={SECTION}>
             <h2 className="font-semibold">Side banner cards (3)</h2>
-            <p className="text-xs text-gray-500">The three smaller cards in the hero grid. Top 2 are square, bottom 1 is wide.</p>
-            {form.miniBanners.map((b, i) => (
-              <div key={i} className="border border-gray-200 rounded p-4 space-y-2">
-                <p className="text-xs font-semibold text-gray-700">Card {i + 1}{i === 2 ? " (wide bottom)" : ""}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className={LABEL}>Eyebrow</label><input className={FIELD} value={b.eyebrow} onChange={(e) => updateItem("miniBanners", i, { eyebrow: e.target.value })} /></div>
-                  <div><label className={LABEL}>Badge text (optional)</label><input className={FIELD} value={b.badgeText} onChange={(e) => updateItem("miniBanners", i, { badgeText: e.target.value })} placeholder="Up to 20% off" /></div>
+            <p className="text-xs text-gray-500">The three smaller cards in the hero grid (matching the map above).</p>
+            {form.miniBanners.map((b, i) => {
+              const POS = ["Card 1 — top-left small square", "Card 2 — top-right small square", "Card 3 — wide bottom bar"];
+              return (
+                <div key={i} className="border border-gray-200 rounded p-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded border border-gray-200 overflow-hidden bg-gray-50 shrink-0 flex items-center justify-center" style={{ backgroundColor: b.bgColor || "#ede8f0" }}>
+                      {b.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={b.image} alt="" className="w-full h-full object-cover" />
+                      ) : <span className="text-[9px] text-gray-400">no img</span>}
+                    </div>
+                    <p className="text-xs font-semibold text-gray-700">{POS[i] || `Card ${i + 1}`}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className={LABEL}>Eyebrow</label><input className={FIELD} value={b.eyebrow} onChange={(e) => updateItem("miniBanners", i, { eyebrow: e.target.value })} /></div>
+                    <div><label className={LABEL}>Badge text (optional)</label><input className={FIELD} value={b.badgeText} onChange={(e) => updateItem("miniBanners", i, { badgeText: e.target.value })} placeholder="Up to 20% off" /></div>
+                  </div>
+                  <div><label className={LABEL}>Title</label><input className={FIELD} value={b.title} onChange={(e) => updateItem("miniBanners", i, { title: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className={LABEL}>Link</label><input className={FIELD} value={b.href} onChange={(e) => updateItem("miniBanners", i, { href: e.target.value })} /></div>
+                    <div><label className={LABEL}>Background color (hex)</label><input className={FIELD} value={b.bgColor} onChange={(e) => updateItem("miniBanners", i, { bgColor: e.target.value })} placeholder="#ede8f0" /></div>
+                  </div>
+                  <div><label className={LABEL}>Image URL</label><input className={FIELD} value={b.image} onChange={(e) => updateItem("miniBanners", i, { image: e.target.value })} /></div>
                 </div>
-                <div><label className={LABEL}>Title</label><input className={FIELD} value={b.title} onChange={(e) => updateItem("miniBanners", i, { title: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className={LABEL}>Link</label><input className={FIELD} value={b.href} onChange={(e) => updateItem("miniBanners", i, { href: e.target.value })} /></div>
-                  <div><label className={LABEL}>Background color (hex)</label><input className={FIELD} value={b.bgColor} onChange={(e) => updateItem("miniBanners", i, { bgColor: e.target.value })} placeholder="#ede8f0" /></div>
-                </div>
-                <div><label className={LABEL}>Image URL</label><input className={FIELD} value={b.image} onChange={(e) => updateItem("miniBanners", i, { image: e.target.value })} /></div>
-              </div>
-            ))}
+              );
+            })}
           </section>
         </div>
       )}
