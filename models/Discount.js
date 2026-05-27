@@ -10,6 +10,11 @@ const DiscountSchema = new mongoose.Schema(
     usedCount: { type: Number, default: 0 },
     active: { type: Boolean, default: true },
     expiresAt: Date,
+    description: { type: String, default: "" },
+    // Scope: "all" applies to the whole cart; "collection" only to items in
+    // the given collection.
+    appliesTo: { type: String, enum: ["all", "collection"], default: "all" },
+    collectionSlug: { type: String, default: "" },
   },
   { timestamps: true }
 );

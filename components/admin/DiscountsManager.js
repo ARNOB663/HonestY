@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 export default function DiscountsManager({ initial }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [form, setForm] = useState({ code: "", type: "percent", value: 10, minSubtotal: 0, usageLimit: 0, expiresAt: "" });
+  const [form, setForm] = useState({ code: "", type: "percent", value: 10, minSubtotal: 0, usageLimit: 0, expiresAt: "", description: "", appliesTo: "all", collectionSlug: "" });
+  const [copiedId, setCopiedId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -20,7 +21,7 @@ export default function DiscountsManager({ initial }) {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) { setErr(data.error || "Failed"); return; }
-    setForm({ code: "", type: "percent", value: 10, minSubtotal: 0, usageLimit: 0, expiresAt: "" });
+    setForm({ code: "", type: "percent", value: 10, minSubtotal: 0, usageLimit: 0, expiresAt: "", description: "", appliesTo: "all", collectionSlug: "" });
     router.refresh();
   }
 
@@ -63,6 +64,22 @@ export default function DiscountsManager({ initial }) {
           <div><label className="text-xs text-gray-500">Usage limit (0 = unlimited)</label><input type="number" className={field} value={form.usageLimit} onChange={(e) => setForm({ ...form, usageLimit: e.target.value })} /></div>
           <div><label className="text-xs text-gray-500">Expires</label><input type="date" className={field} value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} /></div>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500">Applies to</label>
+            <select className={field} value={form.appliesTo} onChange={(e) => setForm({ ...form, appliesTo: e.target.value })}>
+              <option value="all">Whole cart</option>
+              <option value="collection">One category only</option>
+            </select>
+          </div>
+          {form.appliesTo === "collection" && (
+            <div>
+              <label className="text-xs text-gray-500">Category slug</label>
+              <input className={field} value={form.collectionSlug} onChange={(e) => setForm({ ...form, collectionSlug: e.target.value })} placeholder="fashion / beauty / …" />
+            </div>
+          )}
+        </div>
+        <div><label className="text-xs text-gray-500">Description (internal)</label><input className={field} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. New customer welcome offer" maxLength={300} /></div>
         <button disabled={busy} className="bg-[#1a2b4a] text-white px-4 py-2 rounded text-sm disabled:opacity-50">{busy ? "…" : "Create code"}</button>
       </form>
 
@@ -75,7 +92,21 @@ export default function DiscountsManager({ initial }) {
             {items.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-500">No discount codes yet.</td></tr>}
             {items.map((d) => (
               <tr key={d._id}>
-                <td className="px-4 py-2 font-mono">{d.code}</td>
+                <td className="px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono">{d.code}</span>
+                    <button
+                      onClick={async () => {
+                        try { await navigator.clipboard.writeText(d.code); setCopiedId(d._id); setTimeout(() => setCopiedId(""), 1200); } catch {}
+                      }}
+                      className="text-[10px] uppercase text-gray-500 hover:text-[#1a2b4a]"
+                      title="Copy code"
+                    >
+                      {copiedId === d._id ? "✓" : "copy"}
+                    </button>
+                  </div>
+                  {d.description && <p className="text-[10px] text-gray-500 mt-0.5">{d.description}</p>}
+                </td>
                 <td className="px-4 py-2">{d.type}</td>
                 <td className="px-4 py-2">{d.type === "percent" ? `${d.value}%` : `৳${d.value}`}</td>
                 <td className="px-4 py-2">{d.minSubtotal ? `৳${d.minSubtotal}` : "—"}</td>

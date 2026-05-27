@@ -41,6 +41,18 @@ export default function MediaManager() {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [check, setCheck] = useState(null);
+
+  async function runCheck() {
+    setCheck({ loading: true });
+    try {
+      const r = await fetch("/api/admin/media/check", { method: "POST" });
+      const data = await r.json().catch(() => ({ ok: false, error: "No response" }));
+      setCheck(data);
+    } catch (e) {
+      setCheck({ ok: false, error: e.message });
+    }
+  }
 
   async function load() {
     const r = await fetch("/api/admin/media");
@@ -73,12 +85,45 @@ export default function MediaManager() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <label className="block text-sm font-semibold mb-2">Upload images</label>
+      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <label className="block text-sm font-semibold">Upload images</label>
+          <button type="button" onClick={runCheck} className="text-xs border border-gray-300 rounded px-2 py-1 hover:border-gray-500">
+            Test Cloudinary connection
+          </button>
+        </div>
         <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={busy} className="text-sm" />
-        {busy && <p className="text-xs text-gray-500 mt-2">Uploading…</p>}
-        {err && <p className="text-xs text-red-600 mt-2">{err}</p>}
-        <p className="text-xs text-gray-400 mt-2">Files upload directly to Cloudinary. URLs are listed below for copy/paste into product images.</p>
+        {busy && <p className="text-xs text-gray-500">Uploading…</p>}
+        {err && (
+          <div className="text-xs bg-red-50 border border-red-200 text-red-700 rounded p-2">
+            <p className="font-semibold">Upload failed</p>
+            <p className="mt-1">{err}</p>
+            <p className="mt-1 text-red-600/80">Click &ldquo;Test Cloudinary connection&rdquo; above to diagnose.</p>
+          </div>
+        )}
+        {check && (
+          <div className={`text-xs rounded p-2 border ${check.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+            {check.loading ? (
+              <p>Checking…</p>
+            ) : check.ok ? (
+              <p className="font-semibold">✓ Connected. Cloud: <span className="font-mono">{check.env?.cloudName}</span></p>
+            ) : (
+              <>
+                <p className="font-semibold">⚠ {check.error}</p>
+                {check.hint && <p className="mt-1">{check.hint}</p>}
+                {check.env && (
+                  <p className="mt-1 text-amber-800/80">
+                    cloud=<span className="font-mono">{check.env.cloudName || "(empty)"}</span>{" "}
+                    apiKey=<span className="font-mono">{check.env.apiKey ? `${check.env.apiKey.slice(0, 4)}…` : "(empty)"}</span>{" "}
+                    secret={check.env.hasSecret ? "set" : "(empty)"}
+                  </p>
+                )}
+                <p className="mt-1 text-amber-800/80">Fix in <code>.env.local</code> then restart <code>npm run dev</code>.</p>
+              </>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-gray-400">Files upload directly to Cloudinary. URLs are listed below for copy/paste into product images.</p>
       </div>
 
       {items.length === 0 ? (

@@ -21,10 +21,17 @@ const ProductSchema = new mongoose.Schema(
         sku: String,
         price: { type: Number, min: 0 },
         inventory: { type: Number, default: 0, min: 0 },
+        image: String,
+        colorHex: String,
       },
     ],
   },
   { timestamps: true, suppressReservedKeysWarning: true }
+);
+
+ProductSchema.index(
+  { title: "text", description: "text", tags: "text", collection: "text" },
+  { weights: { title: 10, tags: 5, collection: 3, description: 1 }, name: "product_search" }
 );
 
 export default mongoose.models.Product || mongoose.model("Product", ProductSchema);

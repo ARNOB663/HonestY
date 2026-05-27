@@ -18,6 +18,7 @@ export const POST = withAdmin(async ({ body }) => {
   const minSubtotal = Math.max(0, Number(body.minSubtotal) || 0);
   const usageLimit = Math.max(0, Math.floor(Number(body.usageLimit) || 0));
   await dbConnect();
+  const appliesTo = body.appliesTo === "collection" ? "collection" : "all";
   await Discount.create({
     code,
     type,
@@ -26,6 +27,9 @@ export const POST = withAdmin(async ({ body }) => {
     usageLimit,
     active: body.active !== false,
     expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+    description: String(body.description || "").slice(0, 300),
+    appliesTo,
+    collectionSlug: appliesTo === "collection" ? String(body.collectionSlug || "").trim().toLowerCase().slice(0, 60) : "",
   });
   return { ok: true };
 });

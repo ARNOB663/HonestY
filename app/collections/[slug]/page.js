@@ -5,10 +5,23 @@ import { getProductsByCollection, getCollection } from "../../../lib/products";
 
 export const revalidate = 3600;
 
+function siteUrl() {
+  return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+}
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const c = getCollection(slug);
-  return { title: c ? `${c.title} — Honesty` : "Collection — Honesty" };
+  if (!c) return { title: "Collection — Honesty" };
+  const desc = (c.blurb || `Shop ${c.title} at Honesty — honestly made, honestly priced.`).slice(0, 160);
+  const url = `${siteUrl()}/collections/${c.slug}`;
+  return {
+    title: `${c.title} — Honesty`,
+    description: desc,
+    alternates: { canonical: url },
+    openGraph: { title: `${c.title} — Honesty`, description: desc, url, type: "website" },
+    twitter: { card: "summary", title: `${c.title} — Honesty`, description: desc },
+  };
 }
 
 export default async function CollectionPage({ params }) {

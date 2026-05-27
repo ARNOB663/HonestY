@@ -1,28 +1,19 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Product from "../../../../models/Product";
+import { nonNegNumber, sanitizeVariants } from "../../../../lib/productSanitize";
 
-function nonNegNumber(v, fallback) {
-  if (v === "" || v == null) return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
-function sanitizeVariants(raw) {
-  if (!Array.isArray(raw)) return [];
-  const seen = new Set();
-  return raw
-    .filter((v) => v && typeof v.name === "string" && v.name.trim())
-    .map((v) => {
-      const id = String(v.id || v.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60) || `v-${Math.random().toString(36).slice(2, 8)}`;
-      if (seen.has(id)) return null;
-      seen.add(id);
-      const price = v.price === "" || v.price == null ? undefined : Math.max(0, Number(v.price)) || 0;
-      const inventory = Math.max(0, Math.floor(Number(v.inventory) || 0));
-      return { id, name: String(v.name).trim().slice(0, 80), sku: v.sku ? String(v.sku).trim().slice(0, 80) : undefined, price, inventory };
-    })
-    .filter(Boolean);
+// Invalidate storefront caches whenever the catalog changes. Without this,
+// homepage / collections / product pages stay stale for up to `revalidate`
+// seconds (homepage = 1 hour).
+function bustStorefrontCaches(slug) {
+  try {
+    revalidatePath("/");
+    revalidatePath("/products");
+    if (slug) revalidatePath(`/products/${slug}`);
+  } catch {}
 }
 
 export const GET = withAdmin(async () => {
@@ -55,5 +46,6 @@ export const POST = withAdmin(async ({ body }) => {
     featured: !!body.featured,
     variants: sanitizeVariants(body.variants),
   });
+  bustStorefrontCaches(product.slug);
   return { ok: true, id: String(product._id) };
 });

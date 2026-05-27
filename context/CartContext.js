@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 
 const CartContext = createContext(null);
 const STORAGE_KEY = "honesty.cart.v2";
@@ -9,10 +10,14 @@ function lineKey(slug, variantId) {
 }
 
 export function CartProvider({ children }) {
+  const { status } = useSession();
+  const authed = status === "authenticated";
   const [items, setItems] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState("");
   const validated = useRef(false);
+  const mergedRef = useRef(false);
+  const syncTimer = useRef(null);
 
   useEffect(() => {
     try {
@@ -27,12 +32,59 @@ export function CartProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items, hydrated]);
 
-  // After hydration, sync cart against current product catalog. Drops items that
-  // no longer exist or are out of stock; refreshes stale prices.
+  // On login: merge the local cart with the server cart (server quantities win
+  // per line, local-only lines are kept), then push the merged set back.
+  useEffect(() => {
+    if (!hydrated || !authed || mergedRef.current) return;
+    mergedRef.current = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/cart");
+        if (!r.ok) return;
+        const { items: serverItems } = await r.json();
+        setItems((local) => {
+          const byKey = new Map();
+          for (const it of serverItems || []) byKey.set(lineKey(it.slug, it.variantId), it);
+          for (const it of local) {
+            const k = lineKey(it.slug, it.variantId);
+            if (byKey.has(k)) byKey.set(k, { ...byKey.get(k), qty: Math.max(byKey.get(k).qty, it.qty) });
+            else byKey.set(k, it);
+          }
+          return [...byKey.values()];
+        });
+      } catch {}
+    })();
+  }, [hydrated, authed]);
+
+  // On logout, allow a future login to re-merge.
+  useEffect(() => {
+    if (!authed) mergedRef.current = false;
+  }, [authed]);
+
+  // Debounced push to server when authenticated.
+  useEffect(() => {
+    if (!hydrated || !authed || !mergedRef.current) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      fetch("/api/cart", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(syncTimer.current);
+  }, [items, authed, hydrated]);
+
+  // After hydration, sync cart against current product catalog. Drops items
+  // that no longer exist or are out of stock; refreshes stale prices.
+  // Runs once per session (guarded by validated.current). We intentionally
+  // exclude `items` from deps — we want the snapshot at hydration time,
+  // not a re-run on every cart mutation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!hydrated || validated.current) return;
-    if (items.length === 0) { validated.current = true; return; }
     validated.current = true;
+    if (items.length === 0) return;
 
     const slugs = [...new Set(items.map((i) => i.slug))];
     (async () => {
@@ -56,12 +108,14 @@ export function CartProvider({ children }) {
           let price = fresh.price;
           let stock = fresh.inventory;
           let title = it.title;
+          let image = fresh.image || it.image;
           if (it.variantId) {
             const v = (fresh.variants || []).find((x) => x.id === it.variantId);
             if (!v) { removed += 1; continue; }
             price = v.price ?? fresh.price;
             stock = v.inventory;
             title = `${fresh.title} — ${v.name}`;
+            image = v.image || image;
           } else if (fresh.variants?.length > 0) {
             removed += 1; continue;
           }
@@ -73,7 +127,7 @@ export function CartProvider({ children }) {
             slug: fresh.slug,
             title,
             price,
-            image: fresh.image || it.image,
+            image,
             qty,
             variantId: it.variantId || null,
             variantName: it.variantName || null,
@@ -89,7 +143,7 @@ export function CartProvider({ children }) {
         }
       } catch {}
     })();
-  }, [hydrated, items]);
+  }, [hydrated]);
 
   function add(product, qty = 1, variant = null) {
     setItems((prev) => {
@@ -106,7 +160,7 @@ export function CartProvider({ children }) {
           slug: product.slug,
           title: variant ? `${product.title} — ${variant.name}` : product.title,
           price: variant?.price ?? product.price,
-          image: product.image,
+          image: variant?.image || product.image,
           qty,
           variantId: variant?.id || null,
           variantName: variant?.name || null,
@@ -131,6 +185,15 @@ export function CartProvider({ children }) {
 
   function clear() {
     setItems([]);
+    // Flush immediately (checkout navigates away before the debounce fires).
+    if (authed && mergedRef.current) {
+      fetch("/api/cart", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: [] }),
+        keepalive: true,
+      }).catch(() => {});
+    }
   }
 
   function dismissNotice() {

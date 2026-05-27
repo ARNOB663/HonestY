@@ -97,6 +97,30 @@ export default function AddToCartButton({ product }) {
       >
         BUY NOW — {formatMoney(effectivePrice * qty)}
       </button>
+
+      {/* Mobile sticky CTA bar — visible only on small screens */}
+      <div className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white border-t border-[#e8e4d8] px-4 py-3 flex items-center gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Total</p>
+          <p className="text-base font-bold text-[#b8553a] truncate">{formatMoney(effectivePrice * qty)}</p>
+        </div>
+        <button
+          onClick={handleAdd}
+          disabled={outOfStock}
+          className="flex-1 border border-[#1a2b4a] text-[#1a2b4a] font-bold py-2.5 rounded text-xs tracking-wide disabled:opacity-50"
+        >
+          {outOfStock ? "OUT" : added ? "✓ ADDED" : "ADD"}
+        </button>
+        <button
+          onClick={handleBuyNow}
+          disabled={outOfStock}
+          className="flex-1 bg-[#1a2b4a] text-white font-bold py-2.5 rounded text-xs tracking-wide disabled:opacity-50"
+        >
+          BUY NOW
+        </button>
+      </div>
+      {/* spacer so content isn't hidden under the sticky bar on mobile */}
+      <div className="md:hidden h-16" aria-hidden />
     </div>
   );
 }

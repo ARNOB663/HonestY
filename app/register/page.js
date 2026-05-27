@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot — must stay empty
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +20,7 @@ export default function RegisterPage() {
     const r = await fetch("/api/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, website }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -40,6 +41,17 @@ export default function RegisterPage() {
         </div>
         <div className="bg-white border border-[#e8e4d8] rounded-lg p-8 shadow-sm">
           <form onSubmit={onSubmit} className="space-y-4">
+            {/* Honeypot: hidden from humans, bots tend to fill it. */}
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              className="hidden"
+              aria-hidden="true"
+            />
             <div>
               <label className="block text-sm font-medium text-[#1a2b4a] mb-1.5">Full Name</label>
               <input
@@ -65,8 +77,8 @@ export default function RegisterPage() {
               <input
                 className="w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm outline-none focus:border-[#1a2b4a] transition-colors"
                 type="password"
-                placeholder="Min. 6 characters"
-                minLength={6}
+                placeholder="Min. 8 characters"
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

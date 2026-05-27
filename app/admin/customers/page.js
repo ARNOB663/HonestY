@@ -42,9 +42,9 @@ export default async function AdminCustomers({ searchParams }) {
             {users.map((u) => {
               const stats = byEmail[u.email] || { orders: 0, spend: 0 };
               return (
-                <tr key={String(u._id)}>
-                  <td className="px-4 py-2">{u.name || "—"}</td>
-                  <td className="px-4 py-2">{u.email}</td>
+                <tr key={String(u._id)} className="hover:bg-gray-50">
+                  <td className="px-4 py-2"><Link href={`/admin/customers/${encodeURIComponent(u.email)}`} className="text-blue-600 hover:underline">{u.name || "—"}</Link></td>
+                  <td className="px-4 py-2"><Link href={`/admin/customers/${encodeURIComponent(u.email)}`} className="hover:underline">{u.email}</Link></td>
                   <td className="px-4 py-2"><span className="inline-block px-2 py-0.5 rounded text-xs bg-gray-100">{u.role}</span></td>
                   <td className="px-4 py-2 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-2 text-right">{stats.orders}</td>

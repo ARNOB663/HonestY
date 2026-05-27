@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatMoney } from "../../lib/format";
@@ -39,12 +39,6 @@ function TrackInner() {
     } catch { setError("Network error"); }
     finally { setLoading(false); }
   }
-
-  useEffect(() => {
-    if (initialId) {
-      // auto-fill but still require email
-    }
-  }, [initialId]);
 
   return (
     <div className="bg-white min-h-screen">

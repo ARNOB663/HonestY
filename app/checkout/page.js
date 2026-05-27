@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCart } from "../../context/CartContext";
-import { formatMoney, BD_DIVISIONS } from "../../lib/format";
+import { formatMoney, BD_DIVISIONS, getDistrictsForDivision } from "../../lib/format";
+import { useShipping, computeShipping } from "../../lib/useShipping";
 
 const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm outline-none focus:border-[#1a2b4a] transition-colors bg-white";
 
@@ -12,10 +13,62 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { items, subtotal, hydrated, clear, notice, dismissNotice } = useCart();
+  const shippingSettings = useShipping();
   const [placing, setPlacing] = useState(false);
   const [done, setDone] = useState(false);
   const [orderId, setOrderId] = useState("");
-  const [form, setForm] = useState({ name: "", phone: "", line1: "", area: "", city: "", state: "Dhaka", zip: "", country: "Bangladesh" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", line1: "", area: "", city: "", state: "Dhaka", zip: "", country: "Bangladesh" });
+  const [payMethod, setPayMethod] = useState("cod");
+  const [payerNumber, setPayerNumber] = useState("");
+  const [txnId, setTxnId] = useState("");
+
+  // A merchant number is "configured" only if it's a real BD mobile number —
+  // not blank and not the 01XXXXXXXXX placeholder. This prevents customers
+  // from sending money to a fake number if the admin forgot to set it.
+  const isRealNumber = (n) => /^01[3-9]\d{8}$/.test(String(n || "").trim());
+  const BKASH_NUMBER = shippingSettings.bkashNumber || "";
+  const NAGAD_NUMBER = shippingSettings.nagadNumber || "";
+  // bKash/Nagad only appear when enabled AND a valid number is set. COD always
+  // works when enabled.
+  const PAYMENT_METHODS = [
+    shippingSettings.enableBkash !== false && isRealNumber(BKASH_NUMBER) && { id: "bkash", label: "bKash", color: "#e2136e" },
+    shippingSettings.enableNagad !== false && isRealNumber(NAGAD_NUMBER) && { id: "nagad", label: "Nagad", color: "#f47b20" },
+    shippingSettings.enableCod !== false && { id: "cod", label: "Cash on Delivery", color: "#1a2b4a" },
+  ].filter(Boolean);
+
+  // If the currently selected payment method becomes disabled by admin,
+  // jump to the first enabled one so the customer can still pay.
+  useEffect(() => {
+    if (PAYMENT_METHODS.length === 0) return;
+    if (!PAYMENT_METHODS.find((m) => m.id === payMethod)) {
+      setPayMethod(PAYMENT_METHODS[0].id);
+    }
+  }, [PAYMENT_METHODS, payMethod]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+    fetch("/api/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.user) return;
+        const u = data.user;
+        const a = u.defaultAddress || {};
+        setForm((f) => ({
+          ...f,
+          name: f.name || u.name || "",
+          phone: f.phone || u.phone || "",
+          line1: f.line1 || a.line1 || "",
+          area: f.area || a.area || "",
+          city: f.city || a.city || "",
+          state: f.state && f.state !== "Dhaka" ? f.state : (a.state || "Dhaka"),
+          zip: f.zip || a.zip || "",
+          country: f.country || a.country || "Bangladesh",
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [status]);
 
   // Discount code
   const [code, setCode] = useState("");
@@ -27,19 +80,7 @@ export default function CheckoutPage() {
     return <div className="px-4 max-w-7xl mx-auto py-16 text-center text-gray-400">Loading…</div>;
   }
 
-  if (!session?.user) {
-    return (
-      <div className="bg-white min-h-[60vh] flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#1a2b4a]">Sign in to check out</h1>
-          <p className="mt-2 text-gray-500 text-sm">You&apos;ll need an account to place an order.</p>
-          <Link href="/login?callbackUrl=/checkout" className="inline-block mt-6 bg-[#1a2b4a] text-white font-bold px-8 py-3 rounded text-sm tracking-wide hover:bg-[#0e1a30] transition-colors">
-            SIGN IN
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const isGuest = !session?.user;
 
   if (items.length === 0 && !done) {
     return (
@@ -63,13 +104,16 @@ export default function CheckoutPage() {
           </div>
           <h1 className="text-2xl font-bold text-[#1a2b4a]">Order Placed!</h1>
           <p className="mt-2 text-gray-500 text-sm">
-            Thanks, {session.user.name || session.user.email}. We&apos;ll contact you shortly to confirm.
+            Thanks, {session?.user?.name || session?.user?.email || form.name || form.email}. We&apos;ll contact you shortly to confirm.
           </p>
           {orderId && <p className="mt-1 text-xs text-gray-400">Order #{orderId.slice(-6)}</p>}
+          <p className="mt-3 text-xs text-gray-500">A confirmation email is on its way{session?.user?.email ? ` to ${session.user.email}` : form.email ? ` to ${form.email}` : ""}.</p>
           <div className="flex items-center justify-center gap-2 mt-6">
-            <Link href={`/track?id=${orderId}`} className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-6 py-2.5 rounded text-sm hover:bg-[#1a2b4a] hover:text-white transition-colors">
-              TRACK ORDER
-            </Link>
+            {session?.user ? (
+              <Link href="/account" className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-6 py-2.5 rounded text-sm hover:bg-[#1a2b4a] hover:text-white transition-colors">
+                MY ORDERS
+              </Link>
+            ) : null}
             <button
               onClick={() => router.push("/")}
               className="bg-[#1a2b4a] text-white font-bold px-6 py-2.5 rounded text-sm tracking-wide hover:bg-[#0e1a30] transition-colors"
@@ -82,7 +126,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const shipping = subtotal >= 2000 ? 0 : 80;
+  const shipping = computeShipping(subtotal, shippingSettings, form.state);
   const discountAmount = applied?.discountAmount || 0;
   const total = Math.max(0, subtotal - discountAmount) + shipping;
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -94,7 +138,7 @@ export default function CheckoutPage() {
       const r = await fetch("/api/discounts/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), subtotal }),
+        body: JSON.stringify({ code: code.trim(), subtotal, items: items.map((i) => ({ slug: i.slug, qty: i.qty, price: i.price })) }),
       });
       const data = await r.json();
       if (!r.ok) { setApplied(null); setCodeMsg(data.error || "Invalid code"); }
@@ -124,7 +168,13 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         items: items.map((i) => ({ slug: i.slug, qty: i.qty })),
         shippingAddress,
+        email: isGuest ? form.email.trim().toLowerCase() : undefined,
         discountCode: applied?.code,
+        payment: {
+          method: payMethod,
+          payerNumber: payMethod === "cod" ? undefined : payerNumber.trim(),
+          txnId: payMethod === "cod" ? undefined : txnId.trim(),
+        },
       }),
     });
     setPlacing(false);
@@ -166,12 +216,46 @@ export default function CheckoutPage() {
           <h1 className="text-xl font-bold text-[#1a2b4a]">Checkout</h1>
 
           <div className="border border-[#e8e4d8] rounded-lg p-6">
-            <h2 className="text-sm font-bold text-[#1a2b4a] uppercase tracking-wide mb-4">Contact</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-[#1a2b4a] uppercase tracking-wide">Contact</h2>
+              {isGuest && (
+                <Link href="/login?callbackUrl=/checkout" className="text-xs text-[#1a2b4a] hover:underline">
+                  Have an account? Sign in
+                </Link>
+              )}
+            </div>
             <div className="space-y-3">
               <label htmlFor="co-name" className="sr-only">Full name</label>
               <input id="co-name" className={inputCls} placeholder="Full name" value={form.name} onChange={set("name")} required autoComplete="name" />
+              {isGuest && (
+                <>
+                  <label htmlFor="co-email" className="sr-only">Email</label>
+                  <input
+                    id="co-email"
+                    className={inputCls}
+                    type="email"
+                    placeholder="Email (for order updates)"
+                    value={form.email}
+                    onChange={set("email")}
+                    required
+                    autoComplete="email"
+                  />
+                </>
+              )}
               <label htmlFor="co-phone" className="sr-only">Mobile number</label>
-              <input id="co-phone" className={inputCls} placeholder="Mobile (e.g. 01XXXXXXXXX)" value={form.phone} onChange={set("phone")} required autoComplete="tel" inputMode="tel" />
+              <input
+                id="co-phone"
+                className={inputCls}
+                placeholder="Mobile (e.g. 01XXXXXXXXX)"
+                value={form.phone}
+                onChange={set("phone")}
+                required
+                autoComplete="tel"
+                inputMode="tel"
+                pattern="01[3-9][0-9]{8}"
+                maxLength={11}
+                title="11-digit Bangladeshi mobile number starting with 013–019"
+              />
             </div>
           </div>
 
@@ -184,13 +268,30 @@ export default function CheckoutPage() {
               <input id="co-area" className={inputCls} placeholder="Area / Thana" value={form.area} onChange={set("area")} autoComplete="address-line2" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="co-city" className="sr-only">City / District</label>
-                  <input id="co-city" className={inputCls} placeholder="City / District" value={form.city} onChange={set("city")} required autoComplete="address-level2" />
+                  <label htmlFor="co-state" className="sr-only">Division</label>
+                  <select
+                    id="co-state"
+                    className={inputCls}
+                    value={form.state}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setForm((f) => ({
+                        ...f,
+                        state: next,
+                        // When division changes, reset city if it's no longer in this division.
+                        city: getDistrictsForDivision(next).includes(f.city) ? f.city : "",
+                      }));
+                    }}
+                    required
+                  >
+                    {BD_DIVISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label htmlFor="co-state" className="sr-only">Division</label>
-                  <select id="co-state" className={inputCls} value={form.state} onChange={set("state")} required>
-                    {BD_DIVISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  <label htmlFor="co-city" className="sr-only">District</label>
+                  <select id="co-city" className={inputCls} value={form.city} onChange={set("city")} required autoComplete="address-level2">
+                    <option value="">Select district…</option>
+                    {getDistrictsForDivision(form.state).map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               </div>
@@ -211,14 +312,75 @@ export default function CheckoutPage() {
 
           <div className="border border-[#e8e4d8] rounded-lg p-6">
             <h2 className="text-sm font-bold text-[#1a2b4a] uppercase tracking-wide mb-4">Payment</h2>
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {["bKash","Nagad","Rocket","Cash on Delivery","Visa","Mastercard"].map((p) => (
-                <span key={p} className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">{p}</span>
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 bg-[#eff6ff] border border-[#dbeafe] rounded p-3">
-              Payments are stubbed in this demo — clicking Place Order saves the order without charging. The team will contact you on the mobile number above to confirm.
-            </p>
+            {PAYMENT_METHODS.length === 0 ? (
+              <p className="text-sm text-red-600 mb-4">No payment methods are currently enabled. Please contact support.</p>
+            ) : (
+              <div className={`grid gap-2 mb-4`} style={{ gridTemplateColumns: `repeat(${PAYMENT_METHODS.length}, minmax(0, 1fr))` }}>
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPayMethod(m.id)}
+                    className={`border rounded px-3 py-3 text-sm font-bold transition-colors ${
+                      payMethod === m.id ? "border-[#1a2b4a] bg-[#1a2b4a] text-white" : "border-[#e8e4d8] text-gray-600 hover:border-[#1a2b4a]"
+                    }`}
+                    style={payMethod === m.id ? { backgroundColor: m.color, borderColor: m.color } : undefined}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {payMethod !== "cod" && (
+              <div className="space-y-3">
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <p className="text-amber-900">
+                    Send <strong>{formatMoney(total)}</strong> via{" "}
+                    <strong>{payMethod === "bkash" ? "bKash" : "Nagad"} → Send Money</strong> to:
+                  </p>
+                  <p className="mt-1 text-lg font-bold tracking-wide text-[#1a2b4a]">
+                    {payMethod === "bkash" ? BKASH_NUMBER : NAGAD_NUMBER}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    After sending, enter the number you sent from and the Transaction ID (TrxID) below.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="pay-from" className="block text-xs font-medium text-[#1a2b4a] mb-1">Number you sent from</label>
+                  <input
+                    id="pay-from"
+                    className={inputCls}
+                    placeholder="01XXXXXXXXX"
+                    value={payerNumber}
+                    onChange={(e) => setPayerNumber(e.target.value)}
+                    required
+                    inputMode="tel"
+                    pattern="01[3-9][0-9]{8}"
+                    maxLength={11}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pay-txn" className="block text-xs font-medium text-[#1a2b4a] mb-1">Transaction ID (TrxID)</label>
+                  <input
+                    id="pay-txn"
+                    className={inputCls}
+                    placeholder="e.g. 9A7B2C4D5E"
+                    value={txnId}
+                    onChange={(e) => setTxnId(e.target.value.toUpperCase())}
+                    required
+                    minLength={6}
+                    maxLength={40}
+                  />
+                </div>
+              </div>
+            )}
+
+            {payMethod === "cod" && (
+              <p className="text-xs text-gray-500 bg-[#eff6ff] border border-[#dbeafe] rounded p-3">
+                Pay <strong>{formatMoney(total)}</strong> in cash when your order is delivered. Our team will call to confirm.
+              </p>
+            )}
           </div>
 
           <button

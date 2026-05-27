@@ -1,28 +1,42 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import Product from "../../../../../models/Product";
+import { nonNegNumber, sanitizeVariants } from "../../../../../lib/productSanitize";
+import StockAlert from "../../../../../models/StockAlert";
+import { sendBackInStock } from "../../../../../lib/mailer";
 
-function nonNegNumber(v, fallback) {
-  if (v === "" || v == null) return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : null;
+function bustStorefrontCaches(slug) {
+  try {
+    revalidatePath("/");
+    revalidatePath("/products");
+    if (slug) revalidatePath(`/products/${slug}`);
+  } catch {}
 }
 
-function sanitizeVariants(raw) {
-  if (!Array.isArray(raw)) return [];
-  const seen = new Set();
-  return raw
-    .filter((v) => v && typeof v.name === "string" && v.name.trim())
-    .map((v) => {
-      const id = String(v.id || v.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60) || `v-${Math.random().toString(36).slice(2, 8)}`;
-      if (seen.has(id)) return null;
-      seen.add(id);
-      const price = v.price === "" || v.price == null ? undefined : Math.max(0, Number(v.price)) || 0;
-      const inventory = Math.max(0, Math.floor(Number(v.inventory) || 0));
-      return { id, name: String(v.name).trim().slice(0, 80), sku: v.sku ? String(v.sku).trim().slice(0, 80) : undefined, price, inventory };
-    })
-    .filter(Boolean);
+// Total purchasable stock = master inventory + sum of variant inventory.
+function totalStock(p) {
+  if (!p) return 0;
+  if (Array.isArray(p.variants) && p.variants.length) {
+    return p.variants.reduce((s, v) => s + (Number(v.inventory) || 0), 0);
+  }
+  return Number(p.inventory) || 0;
+}
+
+// When a product goes from 0 → in stock, email everyone who asked, then clear
+// their alerts. Fire-and-forget so it never blocks the admin save.
+async function notifyRestock(product) {
+  try {
+    const alerts = await StockAlert.find({ productSlug: product.slug, notified: false }).lean();
+    if (alerts.length === 0) return;
+    const base = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    const url = `${base}/products/${product.slug}`;
+    for (const a of alerts) {
+      sendBackInStock({ to: a.email, productTitle: product.title, productUrl: url }).catch(() => {});
+    }
+    await StockAlert.deleteMany({ productSlug: product.slug });
+  } catch {}
 }
 
 export const GET = withAdmin(async ({ params }) => {
@@ -55,13 +69,22 @@ export const PUT = withAdmin(async ({ body, params }) => {
     featured: !!body.featured,
     variants: sanitizeVariants(body.variants),
   };
+  const before = await Product.findById(params.id).lean();
   const product = await Product.findByIdAndUpdate(params.id, update, { new: true, runValidators: true });
   if (!product) throw httpError("Not found", 404);
+  bustStorefrontCaches(product.slug);
+  if (before?.slug && before.slug !== product.slug) bustStorefrontCaches(before.slug);
+  // Restock notification: was out of stock, now has stock.
+  if (totalStock(before) <= 0 && totalStock(product) > 0) {
+    notifyRestock(product);
+  }
   return { ok: true };
 });
 
 export const DELETE = withAdmin(async ({ params }) => {
   await dbConnect();
-  await Product.findByIdAndDelete(params.id);
+  const doc = await Product.findByIdAndDelete(params.id).select("slug").lean();
+  if (doc?.slug) bustStorefrontCaches(doc.slug);
+  else bustStorefrontCaches();
   return { ok: true };
 });

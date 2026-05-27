@@ -17,7 +17,7 @@ export async function POST(req) {
       price: p.price,
       image: p.image,
       inventory: p.inventory,
-      variants: (p.variants || []).map((v) => ({ id: v.id, name: v.name, price: v.price, inventory: v.inventory })),
+      variants: (p.variants || []).map((v) => ({ id: v.id, name: v.name, price: v.price, inventory: v.inventory, image: v.image })),
     })),
   });
 }
