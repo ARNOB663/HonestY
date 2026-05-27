@@ -5,8 +5,10 @@ import { getProductsByCollection, getCollection } from "../../../lib/products";
 
 export const revalidate = 3600;
 
+import { getBaseUrl } from "../../../lib/baseUrl";
+
 function siteUrl() {
-  return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  return getBaseUrl();
 }
 
 export async function generateMetadata({ params }) {

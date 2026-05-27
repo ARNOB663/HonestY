@@ -6,6 +6,7 @@ import Product from "../../../../../models/Product";
 import { nonNegNumber, sanitizeVariants } from "../../../../../lib/productSanitize";
 import StockAlert from "../../../../../models/StockAlert";
 import { sendBackInStock } from "../../../../../lib/mailer";
+import { getBaseUrl } from "../../../../../lib/baseUrl";
 
 function bustStorefrontCaches(slug) {
   try {
@@ -30,8 +31,7 @@ async function notifyRestock(product) {
   try {
     const alerts = await StockAlert.find({ productSlug: product.slug, notified: false }).lean();
     if (alerts.length === 0) return;
-    const base = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-    const url = `${base}/products/${product.slug}`;
+    const url = `${getBaseUrl()}/products/${product.slug}`;
     for (const a of alerts) {
       sendBackInStock({ to: a.email, productTitle: product.title, productUrl: url }).catch(() => {});
     }

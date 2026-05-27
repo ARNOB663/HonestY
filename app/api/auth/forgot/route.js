@@ -4,6 +4,7 @@ import { dbConnect } from "../../../../lib/mongodb";
 import { rateLimit, clientIp } from "../../../../lib/rateLimit";
 import { checkOrigin } from "../../../../lib/origin";
 import { sendPasswordReset } from "../../../../lib/mailer";
+import { getBaseUrl } from "../../../../lib/baseUrl";
 import User from "../../../../models/User";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,8 +40,7 @@ export async function POST(req) {
     user.resetTokenExpiresAt = new Date(Date.now() + TOKEN_TTL_MS);
     await user.save();
 
-    const base = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-    const resetUrl = `${base}/reset?token=${token}`;
+    const resetUrl = `${getBaseUrl()}/reset?token=${token}`;
     sendPasswordReset({ to: email, resetUrl }).catch(() => {});
   }
 

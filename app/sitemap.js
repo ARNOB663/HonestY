@@ -1,7 +1,8 @@
 import { getAllProducts, collections } from "../lib/products";
+import { getBaseUrl } from "../lib/baseUrl";
 
 export default async function sitemap() {
-  const base = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  const base = getBaseUrl();
   const now = new Date();
 
   const staticRoutes = [

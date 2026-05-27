@@ -5,11 +5,12 @@ import { getProductBySlug, getCollection, getRelatedProducts } from "../../../li
 import { getStoreSettings } from "../../../lib/settings";
 import ProductCard from "../../../components/ProductCard";
 import { formatMoney } from "../../../lib/format";
+import { getBaseUrl } from "../../../lib/baseUrl";
 
 export const revalidate = 3600;
 
 function siteUrl() {
-  return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  return getBaseUrl();
 }
 
 export async function generateMetadata({ params }) {

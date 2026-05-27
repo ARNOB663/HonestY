@@ -1,5 +1,7 @@
+import { getBaseUrl } from "../lib/baseUrl";
+
 export default function robots() {
-  const base = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  const base = getBaseUrl();
   return {
     rules: [
       { userAgent: "*", allow: "/", disallow: ["/admin", "/api/", "/account", "/checkout", "/cart", "/reset", "/forgot"] },

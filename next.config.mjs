@@ -1,12 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "fastly.picsum.photos" },
-      { protocol: "https", hostname: "res.cloudinary.com" },
-    ],
+    // Allow any HTTPS image host. Admins paste product/banner image URLs from
+    // arbitrary sources (Cloudinary, Unsplash, suppliers); without this a
+    // non-whitelisted host makes next/image throw and breaks the storefront.
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
   async headers() {
     return [
