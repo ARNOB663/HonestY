@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { collections as CATEGORIES } from "../../data/products";
 import MediaPickerModal from "./MediaPickerModal";
+import RichText from "./RichText";
 
 export default function ProductForm({ product }) {
   const router = useRouter();
@@ -125,7 +126,11 @@ export default function ProductForm({ product }) {
           <div><label className={label}>Title</label><input className={field} value={form.title} onChange={(e) => set("title", e.target.value)} required /></div>
           <div><label className={label}>Slug</label><input className={field} value={form.slug} onChange={(e) => set("slug", e.target.value)} required /></div>
         </div>
-        <div><label className={label}>Description</label><textarea className={field} rows={5} value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
+        <div>
+          <label className={label}>Description</label>
+          <RichText value={form.description} onChange={(html) => set("description", html)} />
+          <p className="text-[11px] text-gray-500 mt-1">Use the toolbar for headings, bold, lists, and links. Pasted text comes in as plain text.</p>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <div><label className={label}>Price (৳)</label><input className={field} type="number" step="0.01" value={form.price} onChange={(e) => set("price", e.target.value)} required /></div>
           <div><label className={label}>Compare-at (৳) <span className="text-gray-400 normal-case">— for sale badge</span></label><input className={field} type="number" step="0.01" value={form.compareAtPrice} onChange={(e) => set("compareAtPrice", e.target.value)} /></div>

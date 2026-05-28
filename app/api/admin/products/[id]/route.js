@@ -4,6 +4,7 @@ import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import Product from "../../../../../models/Product";
 import { nonNegNumber, sanitizeVariants, sanitizeSpecs } from "../../../../../lib/productSanitize";
+import { sanitizePageBody } from "../../../../../lib/sanitize";
 import StockAlert from "../../../../../models/StockAlert";
 import { sendBackInStock } from "../../../../../lib/mailer";
 import { getBaseUrl } from "../../../../../lib/baseUrl";
@@ -59,7 +60,7 @@ export const PUT = withAdmin(async ({ body, params }) => {
   const update = {
     slug: String(body.slug || "").trim().toLowerCase(),
     title: String(body.title || "").trim(),
-    description: body.description,
+    description: sanitizePageBody(body.description),
     price,
     compareAtPrice: compareAt ?? null,
     image: body.image,

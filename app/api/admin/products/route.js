@@ -4,6 +4,7 @@ import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Product from "../../../../models/Product";
 import { nonNegNumber, sanitizeVariants, sanitizeSpecs } from "../../../../lib/productSanitize";
+import { sanitizePageBody } from "../../../../lib/sanitize";
 
 // Invalidate storefront caches whenever the catalog changes. Without this,
 // homepage / collections / product pages stay stale for up to `revalidate`
@@ -36,7 +37,7 @@ export const POST = withAdmin(async ({ body }) => {
   const product = await Product.create({
     slug: String(body.slug).trim().toLowerCase(),
     title: String(body.title).trim(),
-    description: body.description,
+    description: sanitizePageBody(body.description),
     price,
     compareAtPrice: compareAt,
     image: body.image,
