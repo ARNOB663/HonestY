@@ -67,7 +67,7 @@ export async function POST(req) {
   if (!checkOrigin(req)) return bad("Bad origin", 403);
 
   const ip = clientIp(req);
-  const rl = rateLimit({ key: `orders:${ip}`, limit: 10, windowMs: 10 * 60 * 1000 });
+  const rl = await rateLimit({ key: `orders:${ip}`, limit: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Too many order attempts. Try again shortly." },

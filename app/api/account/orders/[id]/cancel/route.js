@@ -22,7 +22,7 @@ export async function POST(req, ctx) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const rl = rateLimit({ key: `cancel:${clientIp(req)}`, limit: 10, windowMs: 10 * 60 * 1000 });
+  const rl = await rateLimit({ key: `cancel:${clientIp(req)}`, limit: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many attempts" }, {
       status: 429,

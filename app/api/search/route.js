@@ -8,7 +8,7 @@ import Product from "../../../models/Product";
 let textIndexAvailable = true;
 
 export async function GET(req) {
-  const rl = rateLimit({ key: `search:${clientIp(req)}`, limit: 60, windowMs: 60 * 1000 });
+  const rl = await rateLimit({ key: `search:${clientIp(req)}`, limit: 60, windowMs: 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json(
       { results: [], error: "Too many search requests" },

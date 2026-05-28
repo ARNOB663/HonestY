@@ -13,6 +13,8 @@
   "type": "module",
   "dependencies": {
     "@panva/hkdf": "^1.2.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "dotenv": "^17.4.2",

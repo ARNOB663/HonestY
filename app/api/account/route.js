@@ -46,7 +46,7 @@ export async function PATCH(req) {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
-  const rl = rateLimit({ key: `account:${clientIp(req)}`, limit: 20, windowMs: 10 * 60 * 1000 });
+  const rl = await rateLimit({ key: `account:${clientIp(req)}`, limit: 20, windowMs: 10 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many updates. Try again shortly." }, {
       status: 429,

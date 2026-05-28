@@ -9,7 +9,7 @@ import { discountAmountFor, eligibleBase } from "../../../../lib/discount";
 export async function POST(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
 
-  const rl = rateLimit({ key: `discount:${clientIp(req)}`, limit: 20, windowMs: 10 * 60 * 1000 });
+  const rl = await rateLimit({ key: `discount:${clientIp(req)}`, limit: 20, windowMs: 10 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Too many attempts. Try again shortly." },

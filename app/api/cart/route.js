@@ -39,7 +39,7 @@ export async function PUT(req) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const rl = rateLimit({ key: `cart:${clientIp(req)}`, limit: 120, windowMs: 10 * 60 * 1000 });
+  const rl = await rateLimit({ key: `cart:${clientIp(req)}`, limit: 120, windowMs: 10 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many updates" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   }

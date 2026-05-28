@@ -9,7 +9,7 @@ import User from "../../../../models/User";
 export async function POST(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
 
-  const rl = rateLimit({ key: `reset:${clientIp(req)}`, limit: 10, windowMs: 60 * 60 * 1000 });
+  const rl = await rateLimit({ key: `reset:${clientIp(req)}`, limit: 10, windowMs: 60 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many attempts" }, {
       status: 429,

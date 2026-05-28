@@ -13,7 +13,7 @@ const TOKEN_TTL_MS = 60 * 60 * 1000;
 export async function POST(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
 
-  const rl = rateLimit({ key: `forgot:${clientIp(req)}`, limit: 5, windowMs: 60 * 60 * 1000 });
+  const rl = await rateLimit({ key: `forgot:${clientIp(req)}`, limit: 5, windowMs: 60 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many attempts" }, {
       status: 429,

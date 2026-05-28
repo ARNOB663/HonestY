@@ -10,7 +10,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function POST(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
 
-  const rl = rateLimit({ key: `stockalert:${clientIp(req)}`, limit: 20, windowMs: 60 * 60 * 1000 });
+  const rl = await rateLimit({ key: `stockalert:${clientIp(req)}`, limit: 20, windowMs: 60 * 60 * 1000 });
   if (!rl.ok) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   }
