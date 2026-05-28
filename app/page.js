@@ -3,6 +3,7 @@ import Image from "next/image";
 import ProductCard from "../components/ProductCard";
 import CategoryTabs from "../components/CategoryTabs";
 import NewsletterForm from "../components/NewsletterForm";
+import HomeHero from "../components/HomeHero";
 import VisualCategories from "../components/VisualCategories";
 import Testimonials from "../components/Testimonials";
 import BrandStory from "../components/BrandStory";
@@ -21,123 +22,10 @@ export default async function Home() {
     getActiveSalesGroups(),
   ]);
 
-  const minis = (settings.miniBanners || []).slice(0, 3);
-
   return (
     <div className="bg-[#fafaf7]">
-      {/* 1. HERO BANNER */}
-      <section className="max-w-7xl mx-auto px-4 pt-6 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-4 lg:grid-rows-2 gap-4 lg:h-[600px]">
-          {/* MAIN LARGE CARD */}
-          <div className="lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-[#f5f1e8] min-h-[420px]">
-            {settings.heroImage && (
-              <Image
-                src={settings.heroImage}
-                alt={settings.heroTitle || "Hero"}
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover object-right"
-              />
-            )}
-            <div className="relative z-10 p-8 md:p-12 lg:p-14 flex flex-col h-full max-w-[55%]">
-              {settings.heroEyebrow && <p className="text-[#1a2b4a]/70 text-sm font-medium mb-4">{settings.heroEyebrow}</p>}
-              {settings.heroTitle && (
-                <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-[#1a2b4a] leading-[1.1] mb-6">
-                  {settings.heroTitle}
-                </h2>
-              )}
-              {settings.heroPriceText && (
-                <p className="text-[#1a2b4a] text-base mb-2 mt-auto">{settings.heroPriceText}</p>
-              )}
-              {settings.heroCtaText && (
-                <Link
-                  href={settings.heroCtaHref || "/products"}
-                  className="inline-block w-fit mt-4 bg-[#1a2b4a] text-white font-semibold px-7 py-3 rounded text-sm tracking-[0.15em] uppercase hover:bg-[#0e1a30] transition-colors"
-                >
-                  {settings.heroCtaText}
-                </Link>
-              )}
-            </div>
-          </div>
-
-          {/* Top right card 1 */}
-          {minis[0] && (
-            <Link
-              href={minis[0].href || "/products"}
-              className="relative rounded-2xl overflow-hidden p-6 flex flex-col group min-h-[200px]"
-              style={{ backgroundColor: minis[0].bgColor || "#ede8f0" }}
-            >
-              {minis[0].badgeText && (
-                <span className="self-center inline-flex items-center gap-1 bg-[#b8553a] text-white text-[11px] font-bold tracking-[0.15em] uppercase px-3 py-1 rounded-full shadow-sm">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full" />
-                  {minis[0].badgeText}
-                </span>
-              )}
-              {minis[0].eyebrow && <p className="text-[#1a2b4a]/60 text-xs font-medium text-center">{minis[0].eyebrow}</p>}
-              {minis[0].title && <h3 className="font-serif text-xl text-[#1a2b4a] text-center mt-1 leading-tight">{minis[0].title}</h3>}
-              <div className="relative flex-1 mt-2 min-h-[100px]">
-                {minis[0].image && (
-                  <Image src={minis[0].image} alt={minis[0].title || ""} fill sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain group-hover:scale-105 transition-transform duration-500" />
-                )}
-              </div>
-            </Link>
-          )}
-
-          {/* Top right card 2 */}
-          {minis[1] && (
-            <Link
-              href={minis[1].href || "/products"}
-              className="relative rounded-2xl overflow-hidden p-6 flex flex-col group min-h-[200px]"
-              style={{ backgroundColor: minis[1].bgColor || "#f5e8e0" }}
-            >
-              {minis[1].badgeText && (
-                <span className="self-center inline-flex items-center gap-1 bg-[#b8553a] text-white text-[11px] font-bold tracking-[0.15em] uppercase px-3 py-1 rounded-full shadow-sm">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full" />
-                  {minis[1].badgeText}
-                </span>
-              )}
-              {minis[1].eyebrow && <p className="text-[#1a2b4a]/60 text-xs font-medium text-center">{minis[1].eyebrow}</p>}
-              {minis[1].title && <h3 className="font-serif text-xl text-[#1a2b4a] text-center mt-2 leading-tight">{minis[1].title}</h3>}
-              <div className="relative flex-1 mt-2 min-h-[100px]">
-                {minis[1].image && (
-                  <Image src={minis[1].image} alt={minis[1].title || ""} fill sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain group-hover:scale-105 transition-transform duration-500" />
-                )}
-              </div>
-            </Link>
-          )}
-
-          {/* Wide bottom */}
-          {minis[2] && (
-            <div className="lg:col-span-2 relative rounded-2xl overflow-hidden min-h-[220px]" style={{ backgroundColor: minis[2].bgColor || "#dde5d8" }}>
-              <div className="grid grid-cols-2 h-full">
-                <div className="p-6 md:p-8 flex flex-col justify-center">
-                  {minis[2].eyebrow && <p className="text-[#1a2b4a]/70 text-sm font-medium mb-2">{minis[2].eyebrow}</p>}
-                  {minis[2].title && (
-                    <h3 className="font-serif text-2xl md:text-3xl text-[#1a2b4a] leading-tight mb-3">
-                      {minis[2].title}
-                    </h3>
-                  )}
-                  {minis[2].badgeText && (
-                    <p className="text-[#b8553a] font-bold text-sm mb-3">{minis[2].badgeText}</p>
-                  )}
-                  <Link
-                    href={minis[2].href || "/products"}
-                    className="text-[#1a2b4a] text-xs font-bold tracking-[0.2em] uppercase border-b-2 border-[#1a2b4a] w-fit pb-0.5 hover:text-[#c9a961] hover:border-[#c9a961] transition-colors"
-                  >
-                    Shop Now
-                  </Link>
-                </div>
-                <div className="relative">
-                  {minis[2].image && (
-                    <Image src={minis[2].image} alt={minis[2].title || ""} fill sizes="(max-width: 1024px) 50vw, 25vw" className="object-cover" />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* 1. HERO BANNER — layout determined by settings.heroLayout */}
+      <HomeHero settings={settings} />
 
       {/* 2. SALE */}
       {onSale.length > 0 && (

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MediaPickerModal from "./MediaPickerModal";
+import { HERO_LAYOUTS, getHeroLayout } from "../../lib/heroLayouts";
 
 const FIELD = "w-full border border-gray-300 rounded px-3 py-2 text-sm";
 const LABEL = "block text-xs uppercase tracking-wide text-gray-600 mb-1";
@@ -11,6 +12,17 @@ const DEFAULT_MINIS = [
   { eyebrow: "", title: "", href: "/products", image: "", badgeText: "", bgColor: "#f5e8e0" },
   { eyebrow: "", title: "", href: "/products", image: "", badgeText: "", bgColor: "#dde5d8" },
 ];
+
+// Tiny svg-ish thumbnail of a layout preset for the picker.
+function LayoutThumb({ layout }) {
+  return (
+    <div className={`${layout.grid} bg-gray-50 rounded p-1`} style={{ height: 60, gap: 3 }}>
+      {layout.cells.map((cell, i) => (
+        <div key={i} className={`${cell.className} bg-[#1a2b4a]/15 rounded-sm`} />
+      ))}
+    </div>
+  );
+}
 
 function BlueprintBox({ className = "", label, sub, image, color }) {
   return (
@@ -61,6 +73,7 @@ function ImageField({ label, value, onChange }) {
 export default function HeroBannerManager({ initial }) {
   const router = useRouter();
   const [form, setForm] = useState(() => ({
+    heroLayout: initial?.heroLayout || "hero-plus-3",
     heroEyebrow: initial?.heroEyebrow || "",
     heroTitle: initial?.heroTitle || "",
     heroPriceText: initial?.heroPriceText || "",
@@ -76,6 +89,10 @@ export default function HeroBannerManager({ initial }) {
       bgColor: b.bgColor || "#ede8f0",
     })),
   }));
+  const layout = getHeroLayout(form.heroLayout);
+  const cardLabels = { hero: "Main hero", card1: "Card 1", card2: "Card 2", card3: "Card 3" };
+  // How many side cards the chosen layout actually shows.
+  const slotsUsed = layout.slots;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -100,20 +117,59 @@ export default function HeroBannerManager({ initial }) {
 
   return (
     <form onSubmit={save} className="space-y-5">
-      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-semibold">Homepage hero & banners</h2>
           <div className="flex items-center gap-3">
             {msg && <span className={`text-sm ${msg === "Saved." ? "text-green-700" : "text-red-700"}`}>{msg}</span>}
             <button disabled={busy} className="bg-[#1a2b4a] text-white px-5 py-2 rounded text-sm disabled:opacity-50">{busy ? "Saving…" : "Save banners"}</button>
           </div>
         </div>
-        <p className="text-xs text-gray-500">Upload images straight from here. This is the layout on the homepage:</p>
-        <div className="grid grid-cols-4 grid-rows-2 gap-2 max-w-2xl" style={{ height: 240 }}>
-          <BlueprintBox className="col-span-2 row-span-2" label="Main hero" image={form.heroImage} color="#f5f1e8" />
-          <BlueprintBox label="Card 1" sub="top-left" image={form.miniBanners[0]?.image} color={form.miniBanners[0]?.bgColor} />
-          <BlueprintBox label="Card 2" sub="top-right" image={form.miniBanners[1]?.image} color={form.miniBanners[1]?.bgColor} />
-          <BlueprintBox className="col-span-2" label="Card 3" sub="wide bottom" image={form.miniBanners[2]?.image} color={form.miniBanners[2]?.bgColor} />
+
+        {/* Layout picker — small visual thumbs for each preset. */}
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Layout</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {HERO_LAYOUTS.map((opt) => {
+              const active = form.heroLayout === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => set("heroLayout")(opt.id)}
+                  className={`text-left rounded-lg border-2 p-2 transition-all ${
+                    active ? "border-[#1a2b4a] bg-[#1a2b4a]/5" : "border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  <LayoutThumb layout={opt} />
+                  <p className="text-xs font-semibold mt-1.5">{opt.label}</p>
+                  <p className="text-[10px] text-gray-500 leading-snug">{opt.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Live blueprint preview — reflects the selected layout + current images. */}
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Live preview</p>
+          <div className={`${layout.grid} max-w-2xl`} style={{ minHeight: 180 }}>
+            {layout.cells.map((cell) => {
+              const idx = cell.key === "hero" ? -1 : Number(cell.key.replace("card", "")) - 1;
+              const data = cell.key === "hero"
+                ? { image: form.heroImage, bgColor: "#f5f1e8" }
+                : form.miniBanners[idx] || { image: "", bgColor: "#ede8f0" };
+              return (
+                <BlueprintBox
+                  key={cell.key}
+                  className={cell.className}
+                  label={cardLabels[cell.key]}
+                  image={data.image}
+                  color={data.bgColor || (cell.key === "hero" ? "#f5f1e8" : "#ede8f0")}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -131,9 +187,11 @@ export default function HeroBannerManager({ initial }) {
         <ImageField label="Main hero image" value={form.heroImage} onChange={set("heroImage")} />
       </div>
 
+      {slotsUsed > 0 && (
       <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-        <h2 className="font-semibold">Side banner cards (3)</h2>
-        {form.miniBanners.map((b, i) => (
+        <h2 className="font-semibold">Side banner cards ({slotsUsed})</h2>
+        <p className="text-xs text-gray-500">Only the cards your selected layout uses are shown. Extra card data is preserved if you switch layouts later.</p>
+        {form.miniBanners.slice(0, slotsUsed).map((b, i) => (
           <div key={i} className="border border-gray-200 rounded p-4 space-y-2">
             <p className="text-xs font-semibold text-gray-700">{POS[i] || `Card ${i + 1}`}</p>
             <div className="grid grid-cols-2 gap-2">
@@ -149,6 +207,7 @@ export default function HeroBannerManager({ initial }) {
           </div>
         ))}
       </div>
+      )}
 
       <div className="flex justify-end">
         <button disabled={busy} className="bg-[#1a2b4a] text-white px-5 py-2 rounded text-sm disabled:opacity-50">{busy ? "Saving…" : "Save banners"}</button>

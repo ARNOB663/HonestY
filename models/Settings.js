@@ -89,6 +89,13 @@ const SettingsSchema = new mongoose.Schema(
     enableNagad: { type: Boolean, default: true },
     enableCod: { type: Boolean, default: true },
 
+    // Hero layout preset — which arrangement of banners renders on the homepage.
+    heroLayout: {
+      type: String,
+      enum: ["hero-plus-3", "single", "two-up", "three-up", "four-grid"],
+      default: "hero-plus-3",
+    },
+
     // Hero — main banner
     heroEyebrow: { type: String, default: "Honestly made" },
     heroTitle: { type: String, default: "Relaxed Linen Shirt — Natural" },

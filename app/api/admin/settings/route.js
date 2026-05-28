@@ -130,8 +130,13 @@ export const PUT = withAdmin(async ({ body }) => {
 
 // Partial update — only touches the hero/banner fields, leaving everything
 // else intact. Used by the Hero & Banners editor on the Media page.
+const VALID_HERO_LAYOUTS = new Set(["hero-plus-3", "single", "two-up", "three-up", "four-grid"]);
+
 export const PATCH = withAdmin(async ({ body }) => {
   const set = {};
+  if (body.heroLayout !== undefined && VALID_HERO_LAYOUTS.has(body.heroLayout)) {
+    set.heroLayout = body.heroLayout;
+  }
   if (body.heroEyebrow !== undefined) set.heroEyebrow = str(body.heroEyebrow, 80);
   if (body.heroTitle !== undefined) set.heroTitle = str(body.heroTitle, 160);
   if (body.heroPriceText !== undefined) set.heroPriceText = str(body.heroPriceText, 80);
