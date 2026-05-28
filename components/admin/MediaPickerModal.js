@@ -22,6 +22,7 @@ export default function MediaPickerModal({ onPick, onClose, multi = false }) {
 
   async function uploadFiles(files) {
     setUploading(true); setErr("");
+    const uploadedUrls = [];
     try {
       for (const file of files) {
         const signRes = await fetch("/api/admin/media/sign", { method: "POST" });
@@ -49,8 +50,21 @@ export default function MediaPickerModal({ onPick, onClose, multi = false }) {
             publicId: data.public_id, url: data.secure_url, width: data.width, height: data.height, format: data.format, bytes: data.bytes, folder: sig.folder,
           }),
         });
+        if (data.secure_url) uploadedUrls.push(data.secure_url);
       }
       await load();
+      // Auto-pick the freshly uploaded image(s). This matches the natural
+      // mental model — "I uploaded, I want to use it" — without making the
+      // admin then click the thumbnail again. Modal closes after picking.
+      if (uploadedUrls.length > 0) {
+        if (multi) {
+          onPick(uploadedUrls);
+          onClose();
+        } else {
+          onPick(uploadedUrls[0]);
+          onClose();
+        }
+      }
     } catch (e) {
       setErr(e.message || "Upload failed");
     } finally {
