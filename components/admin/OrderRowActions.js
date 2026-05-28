@@ -2,7 +2,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function OrderRowActions({ id, status }) {
+// Confirm action target depends on payment method:
+//   COD     → "confirmed"  (no money received yet)
+//   Prepaid → "paid"       (money already in via bKash/Nagad TrxID)
+function confirmTargetFor(paymentMethod) {
+  return paymentMethod === "cod" ? "confirmed" : "paid";
+}
+
+export default function OrderRowActions({ id, status, paymentMethod }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -21,12 +28,13 @@ export default function OrderRowActions({ id, status }) {
   if (status === "pending") {
     return (
       <div className="inline-flex gap-1">
-        <button onClick={() => setStatus("paid")} disabled={busy} className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-semibold px-2 py-1 rounded disabled:opacity-50">Confirm</button>
+        <button onClick={() => setStatus(confirmTargetFor(paymentMethod))} disabled={busy} className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-semibold px-2 py-1 rounded disabled:opacity-50">Confirm</button>
         <button onClick={() => setStatus("cancelled", "Cancel this order?")} disabled={busy} className="text-[11px] bg-red-600 hover:bg-red-700 text-white font-semibold px-2 py-1 rounded disabled:opacity-50">Cancel</button>
       </div>
     );
   }
-  if (status === "paid") {
+  // Both "confirmed" (COD) and "paid" (prepaid) move to "fulfilled" next.
+  if (status === "confirmed" || status === "paid") {
     return (
       <button onClick={() => setStatus("fulfilled")} disabled={busy} className="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2 py-1 rounded disabled:opacity-50">Pack</button>
     );

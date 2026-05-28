@@ -4,7 +4,7 @@ import { dbConnect } from "../../../../../lib/mongodb";
 import Order from "../../../../../models/Order";
 import { sendStatusUpdate } from "../../../../../lib/mailer";
 
-const STATUSES = ["pending", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"];
+const STATUSES = ["pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"];
 
 export const PATCH = withAdmin(async ({ body, params, session }) => {
   const update = {};

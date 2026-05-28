@@ -35,7 +35,7 @@ export default async function OrderDetail({ params }) {
           >
             Print invoice
           </a>
-          <OrderStatusForm id={o._id} status={o.status} />
+          <OrderStatusForm id={o._id} status={o.status} paymentMethod={o.payment?.method} />
         </div>
       </div>
 
@@ -69,8 +69,8 @@ export default async function OrderDetail({ params }) {
         <section className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 className="font-semibold text-sm">Payment</h2>
-            {o.payment.method && o.payment.method !== "cod" && (
-              <PaymentVerifyForm id={o._id} verified={o.payment.verified} />
+            {o.payment.method && (
+              <PaymentVerifyForm id={o._id} verified={o.payment.verified} paymentMethod={o.payment.method} />
             )}
           </div>
           <dl className="text-sm grid grid-cols-2 gap-y-1.5">

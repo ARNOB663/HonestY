@@ -11,8 +11,8 @@ import Discount from "../../../../../../models/Discount";
 import { sendStatusUpdate } from "../../../../../../lib/mailer";
 
 // User-initiated cancellation. Only allowed while the order is still in an
-// early state (pending or paid but not yet packed/shipped).
-const CANCELLABLE = new Set(["pending", "paid"]);
+// early state (not yet packed/shipped).
+const CANCELLABLE = new Set(["pending", "confirmed", "paid"]);
 
 export async function POST(req, ctx) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });

@@ -2,30 +2,38 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STATUSES = ["pending", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"];
+const STATUSES = ["pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"];
 
-const QUICK_ACTIONS = {
-  pending: [
-    { label: "Confirm", target: "paid", style: "bg-blue-600 hover:bg-blue-700" },
-    { label: "Cancel", target: "cancelled", style: "bg-red-600 hover:bg-red-700", confirm: "Cancel this order? Items will NOT be restocked automatically." },
-  ],
-  paid: [
-    { label: "Pack", target: "fulfilled", style: "bg-indigo-600 hover:bg-indigo-700" },
-    { label: "Cancel", target: "cancelled", style: "bg-red-600 hover:bg-red-700", confirm: "Cancel this confirmed order?" },
-  ],
-  fulfilled: [
-    { label: "Mark shipped", target: "shipped", style: "bg-violet-600 hover:bg-violet-700" },
-  ],
-  shipped: [
-    { label: "Mark delivered", target: "delivered", style: "bg-green-600 hover:bg-green-700" },
-  ],
-};
+// Confirm sends to "confirmed" for COD, "paid" for prepaid. "confirmed" and
+// "paid" both move to "fulfilled" next (admin packs the order).
+function quickActionsFor(status, paymentMethod) {
+  const confirmTarget = paymentMethod === "cod" ? "confirmed" : "paid";
+  if (status === "pending") {
+    return [
+      { label: "Confirm", target: confirmTarget, style: "bg-blue-600 hover:bg-blue-700" },
+      { label: "Cancel", target: "cancelled", style: "bg-red-600 hover:bg-red-700", confirm: "Cancel this order? Items will NOT be restocked automatically." },
+    ];
+  }
+  if (status === "confirmed" || status === "paid") {
+    return [
+      { label: "Pack", target: "fulfilled", style: "bg-indigo-600 hover:bg-indigo-700" },
+      { label: "Cancel", target: "cancelled", style: "bg-red-600 hover:bg-red-700", confirm: "Cancel this confirmed order?" },
+    ];
+  }
+  if (status === "fulfilled") {
+    return [{ label: "Mark shipped", target: "shipped", style: "bg-violet-600 hover:bg-violet-700" }];
+  }
+  if (status === "shipped") {
+    return [{ label: "Mark delivered", target: "delivered", style: "bg-green-600 hover:bg-green-700" }];
+  }
+  return [];
+}
 
-export default function OrderStatusForm({ id, status }) {
+export default function OrderStatusForm({ id, status, paymentMethod }) {
   const router = useRouter();
   const [value, setValue] = useState(status);
   const [saving, setSaving] = useState(false);
-  const actions = QUICK_ACTIONS[status] || [];
+  const actions = quickActionsFor(status, paymentMethod);
 
   async function setStatus(next, confirmMsg) {
     if (confirmMsg && !confirm(confirmMsg)) return;

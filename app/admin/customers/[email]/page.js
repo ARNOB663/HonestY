@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_COLOR = {
   pending: "bg-amber-50 text-amber-700",
+  confirmed: "bg-blue-50 text-blue-700",
   paid: "bg-blue-50 text-blue-700",
   fulfilled: "bg-green-50 text-green-700",
   shipped: "bg-indigo-50 text-indigo-700",

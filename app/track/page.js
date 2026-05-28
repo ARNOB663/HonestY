@@ -9,6 +9,7 @@ const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm out
 function STATUS_COPY(s) {
   return {
     pending: { label: "Pending confirmation", color: "bg-amber-100 text-amber-800" },
+    confirmed: { label: "Confirmed", color: "bg-blue-100 text-blue-800" },
     paid: { label: "Confirmed", color: "bg-blue-100 text-blue-800" },
     fulfilled: { label: "Ready to ship", color: "bg-indigo-100 text-indigo-800" },
     shipped: { label: "Shipped", color: "bg-purple-100 text-purple-800" },

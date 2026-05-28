@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_COLOR = {
   pending: "bg-amber-50 text-amber-700",
+  confirmed: "bg-blue-50 text-blue-700",
   paid: "bg-blue-50 text-blue-700",
   fulfilled: "bg-green-50 text-green-700",
   shipped: "bg-indigo-50 text-indigo-700",
@@ -104,7 +105,7 @@ export default async function AdminOrders({ searchParams }) {
       </form>
 
       <div className="flex gap-2 text-xs flex-wrap">
-        {["all", "pending", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"].map((s) => {
+        {["all", "pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"].map((s) => {
           const next = new URLSearchParams();
           if (sp.q) next.set("q", sp.q);
           if (sp.from) next.set("from", sp.from);
@@ -154,7 +155,7 @@ export default async function AdminOrders({ searchParams }) {
                 <td className="px-4 py-2 text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
                 <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_COLOR[o.status] || "bg-gray-100"}`}>{o.status}</span></td>
                 <td className="px-4 py-2 text-right">{formatMoney(o.total)}</td>
-                <td className="px-4 py-2 text-right"><OrderRowActions id={String(o._id)} status={o.status} /></td>
+                <td className="px-4 py-2 text-right"><OrderRowActions id={String(o._id)} status={o.status} paymentMethod={o.payment?.method} /></td>
               </tr>
             ))}
           </tbody>

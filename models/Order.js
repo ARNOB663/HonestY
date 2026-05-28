@@ -21,7 +21,11 @@ const OrderSchema = new mongoose.Schema(
     total: Number,
     status: {
       type: String,
-      enum: ["pending", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"],
+      // "confirmed" is the universal "admin accepted" status — used by COD
+      // where money hasn't been collected yet. "paid" is for prepaid orders
+      // (bKash/Nagad) where the payment is already in. Both signal the order
+      // is ready to pack.
+      enum: ["pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"],
       default: "pending",
       index: true,
     },

@@ -9,6 +9,9 @@ const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm out
 
 const STATUS_STYLE = {
   pending: { label: "Pending", bg: "bg-amber-100", text: "text-amber-900", dot: "bg-amber-500" },
+  // "confirmed" (COD) and "paid" (prepaid) both mean the admin has accepted
+  // the order — show the same friendly "Confirmed" label to customers.
+  confirmed: { label: "Confirmed", bg: "bg-blue-100", text: "text-blue-900", dot: "bg-blue-500" },
   paid: { label: "Confirmed", bg: "bg-blue-100", text: "text-blue-900", dot: "bg-blue-500" },
   fulfilled: { label: "Preparing", bg: "bg-indigo-100", text: "text-indigo-900", dot: "bg-indigo-500" },
   shipped: { label: "Shipped", bg: "bg-violet-100", text: "text-violet-900", dot: "bg-violet-500" },
@@ -17,8 +20,14 @@ const STATUS_STYLE = {
   refunded: { label: "Refunded", bg: "bg-rose-100", text: "text-rose-900", dot: "bg-rose-500" },
 };
 
-const PROGRESS_STEPS = ["pending", "paid", "fulfilled", "shipped", "delivered"];
-const CANCELLABLE = new Set(["pending", "paid"]);
+// Progress bar uses one combined "confirmed" step that lights up for either
+// status. The internal step name is "confirmed" so PROGRESS_STEPS.indexOf
+// works after we map status to this canonical list.
+const PROGRESS_STEPS = ["pending", "confirmed", "fulfilled", "shipped", "delivered"];
+function canonicalStep(status) {
+  return status === "paid" ? "confirmed" : status;
+}
+const CANCELLABLE = new Set(["pending", "confirmed", "paid"]);
 
 function StatusBadge({ status }) {
   const s = STATUS_STYLE[status] || STATUS_STYLE.pending;
@@ -32,7 +41,7 @@ function StatusBadge({ status }) {
 
 function ProgressBar({ status }) {
   if (status === "cancelled" || status === "refunded") return null;
-  const currentIdx = PROGRESS_STEPS.indexOf(status);
+  const currentIdx = PROGRESS_STEPS.indexOf(canonicalStep(status));
   return (
     <div className="flex items-center gap-1 mt-3">
       {PROGRESS_STEPS.map((step, i) => {
