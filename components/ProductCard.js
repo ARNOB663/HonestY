@@ -76,8 +76,10 @@ export default function ProductCard({ product }) {
         )}
       </div>
 
-      {/* Brand */}
-      <p className="text-[#1a2b4a] text-[11px] font-medium mb-1 capitalize">{collection || "Electronics"}</p>
+      {/* Collection */}
+      {collection && (
+        <p className="text-[#1a2b4a] text-[11px] font-medium mb-1 capitalize">{collection.replace(/-/g, " ")}</p>
+      )}
 
       {/* Title */}
       <h3 className="text-[13px] text-[#1a2b4a] leading-snug mb-2 line-clamp-2">{title}</h3>

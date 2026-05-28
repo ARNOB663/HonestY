@@ -1,22 +1,32 @@
 "use client";
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import ProductCard from "./ProductCard";
 import { ChevronLeft, ChevronRight } from "./Icons";
 
-const TABS = [
-  { label: "All", slug: null },
-  { label: "Fashion", slug: "fashion" },
-  { label: "Home & Living", slug: "home-living" },
-  { label: "Beauty", slug: "beauty" },
-  { label: "Wellness", slug: "wellness" },
-  { label: "Electronics", slug: "electronics" },
-];
+function slugToLabel(slug) {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export default function CategoryTabs({ products }) {
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeSlug, setActiveSlug] = useState(null); // null = All
   const scrollRef = useRef(null);
 
-  const activeSlug = TABS.find((t) => t.label === activeTab)?.slug;
+  // Derive tabs from the actual products so admin-managed collections always
+  // appear and removed ones disappear. No hardcoded list.
+  const tabs = useMemo(() => {
+    const slugs = new Set();
+    for (const p of products || []) {
+      if (p.collection) slugs.add(p.collection);
+    }
+    return [
+      { label: "All", slug: null },
+      ...[...slugs].sort().map((slug) => ({ label: slugToLabel(slug), slug })),
+    ];
+  }, [products]);
+
   const filtered = !activeSlug ? products : products.filter((p) => p.collection === activeSlug);
 
   function scroll(dir) {
@@ -27,24 +37,25 @@ export default function CategoryTabs({ products }) {
 
   return (
     <div>
-      {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-[#e8e4d8] mb-6 overflow-x-auto no-scrollbar">
-        {TABS.map((tab) => (
-          <button
-            key={tab.label}
-            onClick={() => setActiveTab(tab.label)}
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab.label
-                ? "border-[#1a2b4a] text-[#1a2b4a]"
-                : "border-transparent text-[#555] hover:text-[#1a2b4a]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const isActive = activeSlug === tab.slug;
+          return (
+            <button
+              key={tab.slug || "all"}
+              onClick={() => setActiveSlug(tab.slug)}
+              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                isActive
+                  ? "border-[#1a2b4a] text-[#1a2b4a]"
+                  : "border-transparent text-[#555] hover:text-[#1a2b4a]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Product grid with scroll arrows */}
       <div className="relative">
         <button
           onClick={() => scroll(-1)}
