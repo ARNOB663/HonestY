@@ -40,13 +40,6 @@ export const PUT = withAdmin(async ({ body }) => {
     enableNagad: bool(body.enableNagad),
     enableCod: bool(body.enableCod),
 
-    heroEyebrow: str(body.heroEyebrow, 80),
-    heroTitle: str(body.heroTitle, 160),
-    heroPriceText: str(body.heroPriceText, 80),
-    heroCtaText: str(body.heroCtaText, 40),
-    heroCtaHref: str(body.heroCtaHref, 200),
-    heroImage: str(body.heroImage, 500),
-
     saleTitle: str(body.saleTitle, 120),
     saleSubtitle: str(body.saleSubtitle, 200),
     bestSellersTitle: str(body.bestSellersTitle, 120),
@@ -73,15 +66,8 @@ export const PUT = withAdmin(async ({ body }) => {
     footerWhatsapp: str(body.footerWhatsapp, 30),
   };
 
-  const miniBanners = cleanArray(body.miniBanners, (b) => ({
-    eyebrow: str(b?.eyebrow, 60),
-    title: str(b?.title, 120),
-    href: str(b?.href, 200),
-    image: str(b?.image, 500),
-    badgeText: str(b?.badgeText, 40),
-    bgColor: str(b?.bgColor, 20) || "#ede8f0",
-  }), 6);
-  if (miniBanners) update.miniBanners = miniBanners;
+  // Hero & mini banners are now managed via PATCH (from the Media page),
+  // not via this PUT, so SettingsForm doesn't overwrite them by omission.
 
   const trustBadges = cleanArray(body.trustBadges, (b) => ({
     title: str(b?.title, 80),
@@ -126,5 +112,34 @@ export const PUT = withAdmin(async ({ body }) => {
   if (footerColumns) update.footerColumns = footerColumns;
 
   await Settings.findOneAndUpdate({ key: "store" }, update, { upsert: true, new: true });
+  return { ok: true };
+});
+
+// Partial update — only touches the hero/banner fields, leaving everything
+// else intact. Used by the Hero & Banners editor on the Media page.
+export const PATCH = withAdmin(async ({ body }) => {
+  const set = {};
+  if (body.heroEyebrow !== undefined) set.heroEyebrow = str(body.heroEyebrow, 80);
+  if (body.heroTitle !== undefined) set.heroTitle = str(body.heroTitle, 160);
+  if (body.heroPriceText !== undefined) set.heroPriceText = str(body.heroPriceText, 80);
+  if (body.heroCtaText !== undefined) set.heroCtaText = str(body.heroCtaText, 40);
+  if (body.heroCtaHref !== undefined) set.heroCtaHref = str(body.heroCtaHref, 200);
+  if (body.heroImage !== undefined) set.heroImage = str(body.heroImage, 500);
+
+  if (body.miniBanners !== undefined) {
+    const minis = cleanArray(body.miniBanners, (b) => ({
+      eyebrow: str(b?.eyebrow, 60),
+      title: str(b?.title, 120),
+      href: str(b?.href, 200),
+      image: str(b?.image, 500),
+      badgeText: str(b?.badgeText, 40),
+      bgColor: str(b?.bgColor, 20) || "#ede8f0",
+    }), 6);
+    if (minis) set.miniBanners = minis;
+  }
+
+  if (Object.keys(set).length === 0) return { ok: true };
+  await dbConnect();
+  await Settings.findOneAndUpdate({ key: "store" }, { $set: set }, { upsert: true, new: true });
   return { ok: true };
 });
