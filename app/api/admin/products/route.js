@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Product from "../../../../models/Product";
@@ -13,6 +13,7 @@ function bustStorefrontCaches(slug) {
     revalidatePath("/");
     revalidatePath("/products");
     if (slug) revalidatePath(`/products/${slug}`);
+    revalidateTag("admin-dashboard");
   } catch {}
 }
 

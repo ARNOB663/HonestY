@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getServerSession } from "next-auth";
 import mongoose from "mongoose";
 import { authOptions } from "../../../lib/auth";
@@ -273,6 +274,7 @@ export async function POST(req) {
     });
 
     sendOrderConfirmation(order).catch(() => {});
+    try { revalidateTag("admin-dashboard"); } catch {}
 
     return NextResponse.json({ ok: true, id: order._id.toString(), total });
   } catch (e) {

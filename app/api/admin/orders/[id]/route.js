@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import Order from "../../../../../models/Order";
@@ -42,6 +43,7 @@ export const PATCH = withAdmin(async ({ body, params, session }) => {
   if (statusChanged) {
     sendStatusUpdate(order, update.status).catch(() => {});
   }
+  try { revalidateTag("admin-dashboard"); } catch {}
 
   return { ok: true };
 });

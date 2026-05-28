@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../lib/mongodb";
 import Order from "../../models/Order";
 import Product from "../../models/Product";
@@ -6,9 +7,19 @@ import User from "../../models/User";
 import { formatMoney } from "../../lib/format";
 import { BarChart, Donut } from "../../components/admin/Charts";
 
-export const dynamic = "force-dynamic";
+// Cache dashboard stats for 60s. Tagged so order/product mutations can bust
+// the cache via revalidateTag("admin-dashboard") for instant updates.
+const cachedStats = unstable_cache(
+  () => loadStatsImpl(),
+  ["admin-dashboard-v1"],
+  { revalidate: 60, tags: ["admin-dashboard"] }
+);
 
 async function loadStats() {
+  return cachedStats();
+}
+
+async function loadStatsImpl() {
   try {
     await dbConnect();
     const now = new Date();
@@ -132,18 +143,16 @@ function Delta({ pct }) {
 }
 
 function KPI({ label, value, sub, delta, accent }) {
-  // Two-class strategy avoids the bg-white/bg-[#1a2b4a] cascade fight that
-  // was rendering the accent tile white-on-white.
   const cls = accent
-    ? "bg-[#1a2b4a] text-white border-[#1a2b4a]"
-    : "bg-white text-[#1a1a1a] border-gray-200";
+    ? "bg-gradient-to-br from-[#1a2b4a] to-[#0e1a30] text-white border-transparent shadow-md"
+    : "bg-white text-[#1a1a1a] border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-px";
   return (
-    <div className={`rounded-lg border p-5 ${cls}`}>
+    <div className={`rounded-xl border p-5 transition-all duration-200 ${cls}`}>
       <div className="flex items-start justify-between">
-        <p className={`text-xs uppercase tracking-wide ${accent ? "text-white/70" : "text-gray-500"}`}>{label}</p>
+        <p className={`text-[11px] uppercase tracking-[0.1em] font-medium ${accent ? "text-white/70" : "text-gray-500"}`}>{label}</p>
         {delta !== undefined && <Delta pct={delta} />}
       </div>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
+      <p className="text-2xl font-semibold mt-2 tracking-tight">{value}</p>
       {sub && <p className={`text-xs mt-1 ${accent ? "text-white/60" : "text-gray-500"}`}>{sub}</p>}
     </div>
   );
@@ -178,26 +187,28 @@ export default async function AdminDashboard() {
 
       {/* Action queue tiles */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link href="/admin/orders?status=pending" className="bg-white border border-gray-200 rounded-lg p-4 hover:border-[#1a2b4a] transition-colors">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Awaiting confirmation</p>
-          <p className="text-2xl font-semibold mt-1 text-amber-700">{s.pendingCount}</p>
-        </Link>
-        <Link href="/admin/orders?status=paid" className="bg-white border border-gray-200 rounded-lg p-4 hover:border-[#1a2b4a] transition-colors">
-          <p className="text-xs uppercase tracking-wide text-gray-500">To pack</p>
-          <p className="text-2xl font-semibold mt-1 text-blue-700">{s.paidCount}</p>
-        </Link>
-        <Link href="/admin/orders?status=shipped" className="bg-white border border-gray-200 rounded-lg p-4 hover:border-[#1a2b4a] transition-colors">
-          <p className="text-xs uppercase tracking-wide text-gray-500">In transit</p>
-          <p className="text-2xl font-semibold mt-1 text-violet-700">{s.shippedCount}</p>
-        </Link>
-        <Link href="/admin/orders?status=delivered" className="bg-white border border-gray-200 rounded-lg p-4 hover:border-[#1a2b4a] transition-colors">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Delivered</p>
-          <p className="text-2xl font-semibold mt-1 text-green-700">{s.deliveredCount}</p>
-        </Link>
+        {[
+          { href: "/admin/orders?status=pending", label: "Awaiting confirmation", count: s.pendingCount, dot: "bg-amber-500", text: "text-amber-700" },
+          { href: "/admin/orders?status=paid", label: "To pack", count: s.paidCount, dot: "bg-blue-500", text: "text-blue-700" },
+          { href: "/admin/orders?status=shipped", label: "In transit", count: s.shippedCount, dot: "bg-violet-500", text: "text-violet-700" },
+          { href: "/admin/orders?status=delivered", label: "Delivered", count: s.deliveredCount, dot: "bg-green-500", text: "text-green-700" },
+        ].map((t) => (
+          <Link
+            key={t.href}
+            href={t.href}
+            className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-px hover:border-gray-300 transition-all duration-200"
+          >
+            <p className="text-[11px] uppercase tracking-[0.1em] text-gray-500 flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
+              {t.label}
+            </p>
+            <p className={`text-2xl font-semibold mt-2 ${t.text}`}>{t.count}</p>
+          </Link>
+        ))}
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-5">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-semibold text-sm">Revenue (last 14 days)</h2>
@@ -207,15 +218,15 @@ export default async function AdminDashboard() {
           <BarChart data={s.dailyRevenue} format={money} />
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <h2 className="font-semibold text-sm mb-4">Sales by category (30d)</h2>
           <Donut segments={s.byCategory} />
         </div>
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-200">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-5 py-3 border-b border-gray-100">
             <h2 className="font-semibold text-sm">Top products (30d)</h2>
           </div>
           {s.topProducts.length === 0 ? (
@@ -235,8 +246,8 @@ export default async function AdminDashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-sm">Low stock</h2>
             <Link href="/admin/products?stock=low" className="text-xs text-blue-600 hover:underline">All →</Link>
           </div>
@@ -255,8 +266,8 @@ export default async function AdminDashboard() {
         </div>
       </section>
 
-      <section className="bg-white rounded-lg border border-gray-200">
-        <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+      <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-sm">Recent orders</h2>
           <Link href="/admin/orders" className="text-xs text-blue-600 hover:underline">All →</Link>
         </div>

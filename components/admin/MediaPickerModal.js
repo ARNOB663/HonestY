@@ -72,6 +72,21 @@ export default function MediaPickerModal({ onPick, onClose, multi = false }) {
     });
   }
 
+  async function deleteImage(id, url) {
+    if (!confirm("Delete this image from Cloudinary? This cannot be undone.")) return;
+    const r = await fetch(`/api/admin/media/${id}`, { method: "DELETE" });
+    if (r.ok) {
+      setItems((arr) => arr.filter((m) => m._id !== id));
+      setSelected((s) => {
+        const next = new Set(s);
+        next.delete(url);
+        return next;
+      });
+    } else {
+      setErr("Could not delete image");
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[85vh] flex flex-col">
@@ -97,16 +112,27 @@ export default function MediaPickerModal({ onPick, onClose, multi = false }) {
               {items.map((m) => {
                 const sel = selected.has(m.url);
                 return (
-                  <button
-                    key={m._id}
-                    type="button"
-                    onClick={() => multi ? toggleSel(m.url) : (onPick(m.url), onClose())}
-                    className={`relative border-2 rounded overflow-hidden transition-colors ${sel ? "border-[#1a2b4a]" : "border-gray-200 hover:border-gray-400"}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.url} alt="" className="w-full aspect-square object-cover" />
-                    {sel && <span className="absolute top-1 right-1 bg-[#1a2b4a] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">✓</span>}
-                  </button>
+                  <div key={m._id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => multi ? toggleSel(m.url) : (onPick(m.url), onClose())}
+                      className={`block w-full border-2 rounded overflow-hidden transition-colors ${sel ? "border-[#1a2b4a]" : "border-gray-200 hover:border-gray-400"}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.url} alt="" className="w-full aspect-square object-cover" />
+                      {sel && <span className="absolute top-1 right-1 bg-[#1a2b4a] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">✓</span>}
+                    </button>
+                    {/* Delete X — visible on hover. Stops propagation so it doesn't also pick the image. */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); deleteImage(m._id, m.url); }}
+                      title="Delete image"
+                      aria-label="Delete image"
+                      className="absolute top-1 left-1 w-5 h-5 rounded-full bg-red-600 text-white text-[11px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 );
               })}
             </div>
