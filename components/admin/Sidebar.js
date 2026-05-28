@@ -38,6 +38,7 @@ const GROUPS = [
       { href: "/admin/customers", label: "Customers", icon: "customers" },
       { href: "/admin/subscribers", label: "Subscribers", icon: "subscribers" },
       { href: "/admin/discounts", label: "Discounts", icon: "discounts" },
+      { href: "/admin/sales", label: "Sales groups", icon: "discounts" },
     ],
   },
   {

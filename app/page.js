@@ -7,17 +7,18 @@ import VisualCategories from "../components/VisualCategories";
 import Testimonials from "../components/Testimonials";
 import BrandStory from "../components/BrandStory";
 import TrustBadges from "../components/TrustBadges";
-import { getFeaturedProducts, getAllProducts, getOnSaleProducts } from "../lib/products";
+import { getFeaturedProducts, getAllProducts, getOnSaleProducts, getActiveSalesGroups } from "../lib/products";
 import { getStoreSettings } from "../lib/settings";
 
 export const revalidate = 3600;
 
 export default async function Home() {
-  const [featured, allProducts, onSale, settings] = await Promise.all([
+  const [featured, allProducts, onSale, settings, salesGroups] = await Promise.all([
     getFeaturedProducts(),
     getAllProducts({ limit: 24 }),
     getOnSaleProducts({ limit: 6 }),
     getStoreSettings(),
+    getActiveSalesGroups(),
   ]);
 
   const minis = (settings.miniBanners || []).slice(0, 3);
@@ -166,6 +167,29 @@ export default async function Home() {
           </div>
         </section>
       )}
+
+      {/* Custom sales groups (admin-controlled). Renders zero or more sections. */}
+      {salesGroups.map((g) => (
+        g.products.length > 0 && (
+          <section key={g.slug} className="max-w-7xl mx-auto px-4 py-12 border-t border-[#e8e4d8]">
+            <div className="flex items-end justify-between mb-8 flex-wrap gap-3">
+              <div>
+                <p className="text-[#b8553a] text-xs font-bold tracking-[0.25em] uppercase mb-2 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#b8553a] animate-pulse" />
+                  {g.eyebrow}
+                </p>
+                <h2 className="font-serif text-3xl md:text-4xl text-[#1a2b4a]">{g.title}</h2>
+                {g.subtitle && <p className="text-sm text-gray-500 mt-1">{g.subtitle}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {g.products.slice(0, 12).map((p) => (
+                <ProductCard key={p.slug} product={p} />
+              ))}
+            </div>
+          </section>
+        )
+      ))}
 
       {/* 3. TRUST BADGES */}
       <TrustBadges badges={settings.trustBadges} />
