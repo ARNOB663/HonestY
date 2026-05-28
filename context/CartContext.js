@@ -15,6 +15,7 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const validated = useRef(false);
   const mergedRef = useRef(false);
   const syncTimer = useRef(null);
@@ -203,8 +204,11 @@ export function CartProvider({ children }) {
   const subtotal = items.reduce((s, x) => s + x.price * x.qty, 0);
   const count = items.reduce((s, x) => s + x.qty, 0);
 
+  const openDrawer = () => setDrawerOpen(true);
+  const closeDrawer = () => setDrawerOpen(false);
+
   return (
-    <CartContext.Provider value={{ items, add, remove, setQty, clear, subtotal, count, hydrated, notice, dismissNotice }}>
+    <CartContext.Provider value={{ items, add, remove, setQty, clear, subtotal, count, hydrated, notice, dismissNotice, drawerOpen, openDrawer, closeDrawer }}>
       {children}
     </CartContext.Provider>
   );

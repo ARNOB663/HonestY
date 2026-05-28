@@ -119,7 +119,7 @@ function SearchBox({ inputClass, formClass, onNavigate }) {
 }
 
 export default function Header({ announcement }) {
-  const { count } = useCart();
+  const { count, openDrawer } = useCart();
   const { count: wishCount } = useWishlist();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -175,18 +175,23 @@ export default function Header({ announcement }) {
               )}
             </Link>
 
-            <Link href="/cart" className="flex items-center gap-2 group">
+            <button
+              type="button"
+              onClick={openDrawer}
+              aria-label="Open cart"
+              className="flex items-center gap-2 group"
+            >
               <div className="relative">
                 <CartIcon size={20} className="text-[#1a2b4a]" />
                 {count > 0 && (
                   <span className="absolute -top-2 left-3 bg-[#c9a961] text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{count}</span>
                 )}
               </div>
-              <div className="text-xs leading-tight hidden md:block">
+              <div className="text-xs leading-tight hidden md:block text-left">
                 <span className="block text-gray-500">{count} Item{count !== 1 ? "s" : ""}</span>
                 <span className="font-medium text-[#1a2b4a] block">Cart</span>
               </div>
-            </Link>
+            </button>
 
             <button
               className="md:hidden text-[#1a2b4a] p-1"
