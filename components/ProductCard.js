@@ -5,11 +5,13 @@ import { useState } from "react";
 import { HeartIcon, LayersIcon } from "./Icons";
 import { formatMoney } from "../lib/format";
 import { useWishlist } from "../context/WishlistContext";
+import { useToast } from "../context/ToastContext";
 import QuickViewModal from "./QuickViewModal";
 
 export default function ProductCard({ product }) {
   const { slug, title, price, compareAtPrice, image, collection, inventory, variants } = product;
   const wishlist = useWishlist();
+  const { toast } = useToast();
   const [quickView, setQuickView] = useState(false);
   const wished = wishlist.has(slug);
   const onSale = compareAtPrice && compareAtPrice > price;
@@ -41,7 +43,12 @@ export default function ProductCard({ product }) {
         <button
           type="button"
           className={`transition-colors ${wished ? "text-[#b8553a]" : "text-gray-400 hover:text-[#b8553a]"}`}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); wishlist.toggle(slug); }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            wishlist.toggle(slug);
+            toast(wished ? `Removed from wishlist` : `Saved to wishlist`);
+          }}
           aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
         >
           <HeartIcon size={15} />

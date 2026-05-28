@@ -3,10 +3,12 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
+import { useToast } from "../context/ToastContext";
 import { formatMoney } from "../lib/format";
 
 export default function QuickViewModal({ product, onClose }) {
   const { add } = useCart();
+  const { toast } = useToast();
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const hasVariants = variants.length > 0;
   const [variantId, setVariantId] = useState(hasVariants ? variants[0].id : null);
@@ -25,6 +27,7 @@ export default function QuickViewModal({ product, onClose }) {
     add(product, qty, selectedVariant);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
+    toast(`Added "${product.title}" to cart`);
   }
 
   return (

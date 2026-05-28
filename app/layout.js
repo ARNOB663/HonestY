@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ScrollToTop from "../components/ScrollToTop";
 import ChromeGate from "../components/ChromeGate";
+import MobileBottomNav from "../components/MobileBottomNav";
 import { getStoreSettings } from "../lib/settings";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
@@ -23,12 +24,13 @@ export default async function RootLayout({ children }) {
   const settings = await getStoreSettings();
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#fafaf7] text-[#1a2b4a]">
+      <body className="min-h-full flex flex-col bg-[#fafaf7] text-[#1a2b4a] pb-16 md:pb-0">
         <Providers>
           <ChromeGate><Header announcement={settings.announcement} /></ChromeGate>
           <main className="flex-1">{children}</main>
           <ChromeGate><Footer /></ChromeGate>
           <ChromeGate><ScrollToTop /></ChromeGate>
+          <ChromeGate><MobileBottomNav /></ChromeGate>
         </Providers>
       </body>
     </html>

@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useCart } from "../context/CartContext";
+import { useToast } from "../context/ToastContext";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "../lib/format";
 
@@ -9,6 +10,7 @@ const PLACEHOLDER = "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8
 
 export default function ProductDetailClient({ product }) {
   const { add } = useCart();
+  const { toast } = useToast();
   const router = useRouter();
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const hasVariants = variants.length > 0;
@@ -48,6 +50,10 @@ export default function ProductDetailClient({ product }) {
     add(product, qty, selectedVariant);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
+    toast({
+      message: `Added "${selectedVariant ? `${product.title} — ${selectedVariant.name}` : product.title}" to cart`,
+      action: { label: "View cart", onClick: () => router.push("/cart") },
+    });
   }
 
   function handleBuyNow() {
