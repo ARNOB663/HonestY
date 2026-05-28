@@ -1,6 +1,18 @@
+import { revalidatePath } from "next/cache";
 import { withAdmin } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Settings from "../../../../models/Settings";
+
+// Bust the storefront pages that read store settings so admin edits show
+// without waiting for the 1-hour revalidate window to expire.
+function bustStorefrontFromSettings() {
+  try {
+    revalidatePath("/");
+    revalidatePath("/products");
+    revalidatePath("/sitemap.xml");
+    revalidatePath("/robots.txt");
+  } catch {}
+}
 
 function nonNeg(v) {
   const n = Number(v);
@@ -112,6 +124,7 @@ export const PUT = withAdmin(async ({ body }) => {
   if (footerColumns) update.footerColumns = footerColumns;
 
   await Settings.findOneAndUpdate({ key: "store" }, update, { upsert: true, new: true });
+  bustStorefrontFromSettings();
   return { ok: true };
 });
 
@@ -141,5 +154,6 @@ export const PATCH = withAdmin(async ({ body }) => {
   if (Object.keys(set).length === 0) return { ok: true };
   await dbConnect();
   await Settings.findOneAndUpdate({ key: "store" }, { $set: set }, { upsert: true, new: true });
+  bustStorefrontFromSettings();
   return { ok: true };
 });
