@@ -25,6 +25,16 @@ const ProductSchema = new mongoose.Schema(
         colorHex: String,
       },
     ],
+    // Ordered key/value rows shown in the Specification tab on the product page.
+    specs: [
+      {
+        _id: false,
+        key: String,
+        value: String,
+      },
+    ],
+    // Warranty tab body (plain text, newlines preserved).
+    warranty: String,
   },
   { timestamps: true, suppressReservedKeysWarning: true }
 );

@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import Product from "../../../../../models/Product";
-import { nonNegNumber, sanitizeVariants } from "../../../../../lib/productSanitize";
+import { nonNegNumber, sanitizeVariants, sanitizeSpecs } from "../../../../../lib/productSanitize";
 import StockAlert from "../../../../../models/StockAlert";
 import { sendBackInStock } from "../../../../../lib/mailer";
 import { getBaseUrl } from "../../../../../lib/baseUrl";
@@ -69,6 +69,8 @@ export const PUT = withAdmin(async ({ body, params }) => {
     inventory,
     featured: !!body.featured,
     variants: sanitizeVariants(body.variants),
+    specs: sanitizeSpecs(body.specs),
+    warranty: typeof body.warranty === "string" ? body.warranty.slice(0, 5000) : "",
   };
   const before = await Product.findById(params.id).lean();
   const product = await Product.findByIdAndUpdate(params.id, update, { new: true, runValidators: true });

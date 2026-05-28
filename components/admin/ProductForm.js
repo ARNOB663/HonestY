@@ -20,6 +20,8 @@ export default function ProductForm({ product }) {
   });
   const [gallery, setGallery] = useState(product?.images || []);
   const [variants, setVariants] = useState(product?.variants || []);
+  const [specs, setSpecs] = useState(product?.specs || []);
+  const [warranty, setWarranty] = useState(product?.warranty || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [picking, setPicking] = useState(null); // { kind: "primary"|"gallery"|"variant", variantIdx? }
@@ -28,6 +30,18 @@ export default function ProductForm({ product }) {
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
   function updateVariant(i, patch) {
     setVariants((arr) => arr.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  }
+  function updateSpec(i, patch) {
+    setSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  }
+  function moveSpec(i, delta) {
+    setSpecs((arr) => {
+      const next = [...arr];
+      const j = i + delta;
+      if (j < 0 || j >= next.length) return next;
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   }
 
   async function submit(e) {
@@ -51,6 +65,8 @@ export default function ProductForm({ product }) {
           image: v.image || undefined,
           colorHex: v.colorHex || undefined,
         })),
+      specs: specs.filter((s) => (s.key || "").trim() && (s.value || "").trim()).map((s) => ({ key: s.key.trim(), value: s.value.trim() })),
+      warranty: warranty.trim(),
     };
     const res = await fetch(isEdit ? `/api/admin/products/${product._id}` : `/api/admin/products`, {
       method: isEdit ? "PUT" : "POST",
@@ -229,6 +245,60 @@ export default function ProductForm({ product }) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-sm">Specifications</h2>
+            <p className="text-xs text-gray-500">Key/value rows shown in the &ldquo;Specification&rdquo; tab on the product page. E.g. <em>Brand → KZ</em>, <em>Cable Length → 125±5cm</em>.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSpecs((arr) => [...arr, { key: "", value: "" }])}
+            className="text-xs bg-[#1a2b4a] text-white px-3 py-1.5 rounded"
+          >+ Add row</button>
+        </div>
+        {specs.length > 0 && (
+          <div className="space-y-2">
+            {specs.map((s, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                <input
+                  className="col-span-4 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  placeholder="Label (e.g. Brand)"
+                  value={s.key}
+                  onChange={(e) => updateSpec(i, { key: e.target.value })}
+                  maxLength={80}
+                />
+                <input
+                  className="col-span-6 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  placeholder="Value (e.g. KZ)"
+                  value={s.value}
+                  onChange={(e) => updateSpec(i, { value: e.target.value })}
+                  maxLength={500}
+                />
+                <div className="col-span-2 flex items-center gap-1 text-xs">
+                  <button type="button" onClick={() => moveSpec(i, -1)} disabled={i === 0} className="px-1.5 py-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" title="Move up">↑</button>
+                  <button type="button" onClick={() => moveSpec(i, 1)} disabled={i === specs.length - 1} className="px-1.5 py-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" title="Move down">↓</button>
+                  <button type="button" onClick={() => setSpecs((arr) => arr.filter((_, j) => j !== i))} className="text-red-600 hover:underline ml-auto">Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-2">
+        <h2 className="font-semibold text-sm">Warranty</h2>
+        <p className="text-xs text-gray-500">Shown in the &ldquo;Warranty&rdquo; tab. Leave blank to hide the tab.</p>
+        <textarea
+          className={field}
+          rows={4}
+          value={warranty}
+          onChange={(e) => setWarranty(e.target.value)}
+          placeholder="e.g. 1-year manufacturer warranty against defects. Contact support within 30 days for replacement."
+          maxLength={5000}
+        />
       </section>
 
       {picking && (

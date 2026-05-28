@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductDetailClient from "../../../components/ProductDetailClient";
+import ProductInfoTabs from "../../../components/ProductInfoTabs";
 import { getProductBySlug, getCollection, getRelatedProducts } from "../../../lib/products";
 import { getStoreSettings } from "../../../lib/settings";
 import ProductCard from "../../../components/ProductCard";
@@ -137,14 +138,11 @@ export default async function ProductPage({ params }) {
           ))}
         </div>
 
-        {product.description && (
-          <div className="mt-12">
-            <h2 className="text-xl font-bold text-[#1a1a1a] mb-4 border-b border-[#e5e7eb] pb-3">Description</h2>
-            <div className="py-2 text-sm text-gray-600 leading-relaxed max-w-3xl whitespace-pre-line">
-              {product.description}
-            </div>
-          </div>
-        )}
+        <ProductInfoTabs
+          specs={product.specs}
+          description={product.description}
+          warranty={product.warranty}
+        />
 
         {related.length > 0 && (
           <div className="mt-10">

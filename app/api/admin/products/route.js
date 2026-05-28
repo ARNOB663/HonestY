@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Product from "../../../../models/Product";
-import { nonNegNumber, sanitizeVariants } from "../../../../lib/productSanitize";
+import { nonNegNumber, sanitizeVariants, sanitizeSpecs } from "../../../../lib/productSanitize";
 
 // Invalidate storefront caches whenever the catalog changes. Without this,
 // homepage / collections / product pages stay stale for up to `revalidate`
@@ -46,6 +46,8 @@ export const POST = withAdmin(async ({ body }) => {
     inventory,
     featured: !!body.featured,
     variants: sanitizeVariants(body.variants),
+    specs: sanitizeSpecs(body.specs),
+    warranty: typeof body.warranty === "string" ? body.warranty.slice(0, 5000) : "",
   });
   bustStorefrontCaches(product.slug);
   return { ok: true, id: String(product._id) };
