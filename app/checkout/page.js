@@ -4,10 +4,58 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCart } from "../../context/CartContext";
-import { formatMoney, BD_DIVISIONS, getDistrictsForDivision } from "../../lib/format";
+import { formatMoney, BD_DIVISIONS, getDistrictsForDivision, getThanasForDistrict } from "../../lib/format";
 import { useShipping, computeShipping } from "../../lib/useShipping";
 
 const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm outline-none focus:border-[#1a2b4a] transition-colors bg-white";
+
+// Area / thana select that falls back to free-text input for villages /
+// sub-areas not in BD_THANAS. Mirrors the AreaPicker on /account.
+function CheckoutAreaPicker({ district, value, onChange, inputCls }) {
+  const list = getThanasForDistrict(district);
+  const inList = list.includes(value);
+  const isOther = !!value && !inList;
+  if (list.length === 0) {
+    return (
+      <input
+        id="co-area"
+        className={inputCls}
+        placeholder="Area / Thana / Village"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="address-line2"
+      />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <select
+        id="co-area"
+        className={inputCls}
+        value={isOther ? "__other__" : value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "__other__") onChange(" ");
+          else onChange(v);
+        }}
+        autoComplete="address-line2"
+      >
+        <option value="">Select area / thana…</option>
+        {list.map((t) => <option key={t} value={t}>{t}</option>)}
+        <option value="__other__">Other (type below)</option>
+      </select>
+      {isOther && (
+        <input
+          className={inputCls}
+          placeholder="Type your area / thana / village"
+          value={value.trim() ? value : ""}
+          onChange={(e) => onChange(e.target.value || " ")}
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -264,8 +312,6 @@ export default function CheckoutPage() {
             <div className="space-y-3">
               <label htmlFor="co-line1" className="sr-only">House / Road</label>
               <input id="co-line1" className={inputCls} placeholder="House / Road" value={form.line1} onChange={set("line1")} required autoComplete="address-line1" />
-              <label htmlFor="co-area" className="sr-only">Area / Thana</label>
-              <input id="co-area" className={inputCls} placeholder="Area / Thana" value={form.area} onChange={set("area")} autoComplete="address-line2" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="co-state" className="sr-only">Division</label>
@@ -278,8 +324,9 @@ export default function CheckoutPage() {
                       setForm((f) => ({
                         ...f,
                         state: next,
-                        // When division changes, reset city if it's no longer in this division.
+                        // When division changes, reset city + area if no longer valid.
                         city: getDistrictsForDivision(next).includes(f.city) ? f.city : "",
+                        area: "",
                       }));
                     }}
                     required
@@ -289,12 +336,26 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <label htmlFor="co-city" className="sr-only">District</label>
-                  <select id="co-city" className={inputCls} value={form.city} onChange={set("city")} required autoComplete="address-level2">
+                  <select
+                    id="co-city"
+                    className={inputCls}
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value, area: "" }))}
+                    required
+                    autoComplete="address-level2"
+                  >
                     <option value="">Select district…</option>
                     {getDistrictsForDivision(form.state).map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               </div>
+              <label htmlFor="co-area" className="sr-only">Area / Thana</label>
+              <CheckoutAreaPicker
+                district={form.city}
+                value={form.area}
+                onChange={(v) => setForm((f) => ({ ...f, area: v }))}
+                inputCls={inputCls}
+              />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="co-zip" className="sr-only">Post code</label>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatMoney, BD_DIVISIONS, getDistrictsForDivision } from "../../lib/format";
+import { formatMoney, BD_DIVISIONS, getDistrictsForDivision, getThanasForDistrict } from "../../lib/format";
 
 const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm outline-none focus:border-[#1a2b4a] transition-colors bg-white";
 
@@ -28,6 +28,49 @@ function canonicalStep(status) {
   return status === "paid" ? "confirmed" : status;
 }
 const CANCELLABLE = new Set(["pending", "confirmed", "paid"]);
+
+// Area / Thana picker. Renders a dropdown of known thanas for the district,
+// plus an "Other (type below)" option that reveals a free-text input so users
+// can enter a village/sub-area we don't enumerate. If the district isn't
+// chosen yet we fall back to a free text input.
+function AreaPicker({ district, value, onChange, inputCls }) {
+  const list = getThanasForDistrict(district);
+  const inList = list.includes(value);
+  // Pre-select "other" mode when the value is non-empty but not in our list
+  // (e.g. legacy address typed before the dropdown existed).
+  const isOther = !!value && !inList;
+  if (list.length === 0) {
+    return (
+      <input className={inputCls} placeholder="Area / Thana / Village" value={value} onChange={(e) => onChange(e.target.value)} />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <select
+        className={inputCls}
+        value={isOther ? "__other__" : value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "__other__") onChange(" ");
+          else onChange(v);
+        }}
+      >
+        <option value="">Select area / thana…</option>
+        {list.map((t) => <option key={t} value={t}>{t}</option>)}
+        <option value="__other__">Other (type below)</option>
+      </select>
+      {isOther && (
+        <input
+          className={inputCls}
+          placeholder="Type your area / thana / village"
+          value={value.trim() ? value : ""}
+          onChange={(e) => onChange(e.target.value || " ")}
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
 
 function StatusBadge({ status }) {
   const s = STATUS_STYLE[status] || STATUS_STYLE.pending;
@@ -345,7 +388,6 @@ export default function AccountPage() {
               <p className="text-xs text-gray-500 mb-3">We&apos;ll pre-fill this on checkout so you don&apos;t have to type it again.</p>
               <div className="space-y-3">
                 <input className={inputCls} placeholder="House / Road" value={form.line1} onChange={set("line1")} />
-                <input className={inputCls} placeholder="Area / Thana" value={form.area} onChange={set("area")} />
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     className={inputCls}
@@ -356,16 +398,27 @@ export default function AccountPage() {
                         ...f,
                         state: next,
                         city: getDistrictsForDivision(next).includes(f.city) ? f.city : "",
+                        area: "",
                       }));
                     }}
                   >
                     {BD_DIVISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
-                  <select className={inputCls} value={form.city} onChange={set("city")}>
+                  <select
+                    className={inputCls}
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value, area: "" }))}
+                  >
                     <option value="">Select district…</option>
                     {getDistrictsForDivision(form.state).map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
+                <AreaPicker
+                  district={form.city}
+                  value={form.area}
+                  onChange={(v) => setForm((f) => ({ ...f, area: v }))}
+                  inputCls={inputCls}
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <input className={inputCls} placeholder="Post code" value={form.zip} onChange={set("zip")} inputMode="numeric" />
                   <select className={inputCls} value={form.country} onChange={set("country")}>
