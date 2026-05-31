@@ -54,14 +54,20 @@ const nextConfig = {
 //   1. bypasses ad blockers (which often kill direct calls to sentry.io)
 //   2. means we don't need to add Sentry hosts to CSP connect-src
 //   3. keeps the actual ingest DSN out of the client bundle
-// `silent: !process.env.CI` quiets the build-time spinner locally.
+//
+// Source map upload is OPT-IN via env: only enabled when SENTRY_AUTH_TOKEN +
+// SENTRY_ORG + SENTRY_PROJECT are all set. Without them errors still arrive,
+// stack traces just point to minified code. `sourcemaps.disable` mutes the
+// loud build-time warning when the token isn't configured.
+const sourceMapsEnabled = !!(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+
 export default withSentryConfig(nextConfig, {
   tunnelRoute: "/monitoring",
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  // Source map upload requires SENTRY_AUTH_TOKEN + org/project slugs in env.
-  // Without them, errors still arrive — stack traces just show minified code.
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { disable: !sourceMapsEnabled },
+  release: { create: sourceMapsEnabled },
 });
