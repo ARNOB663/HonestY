@@ -1,5 +1,5 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatMoney } from "../../lib/format";
@@ -22,8 +22,9 @@ function STATUS_COPY(s) {
 function TrackInner() {
   const params = useSearchParams();
   const initialId = params.get("id") || "";
+  const initialEmail = params.get("email") || "";
   const [id, setId] = useState(initialId);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
@@ -40,6 +41,15 @@ function TrackInner() {
     } catch { setError("Network error"); }
     finally { setLoading(false); }
   }
+
+  // Auto-lookup when arriving from an email link that includes both params.
+  // The customer never has to type anything — they land directly on their order.
+  useEffect(() => {
+    if (initialId && initialEmail) {
+      lookup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="bg-white min-h-screen">
