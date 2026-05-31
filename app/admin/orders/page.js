@@ -145,7 +145,7 @@ export default async function AdminOrders({ searchParams }) {
       </form>
 
       <div className="flex gap-2 text-xs flex-wrap">
-        {["all", "pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"].map((s) => {
+        {["all", "pending", "confirmed", "paid", "delivered", "refunded", "cancelled"].map((s) => {
           const next = new URLSearchParams();
           if (sp.q) next.set("q", sp.q);
           if (sp.from) next.set("from", sp.from);

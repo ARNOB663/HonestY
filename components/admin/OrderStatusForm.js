@@ -2,11 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STATUSES = ["pending", "confirmed", "paid", "fulfilled", "shipped", "delivered", "refunded", "cancelled"];
+// Simplified flow: pending → (admin Confirm) → confirmed/paid → (Mark delivered) →
+// delivered. Plus cancelled / refunded as side states. The "fulfilled" and
+// "shipped" interim states still exist in the DB enum (for backward compat with
+// older orders) but are no longer surfaced in the admin UI.
+const STATUSES = ["pending", "confirmed", "paid", "delivered", "refunded", "cancelled"];
 
-// Confirm sends to "confirmed" for COD, "paid" for prepaid. "confirmed" and
-// "paid" both move to "fulfilled" next (admin packs the order).
 function quickActionsFor(status, paymentMethod) {
+  // Confirm sends to "confirmed" for COD, "paid" for prepaid. Both fire the
+  // "Order confirmed" email via sendStatusUpdate.
   const confirmTarget = paymentMethod === "cod" ? "confirmed" : "paid";
   if (status === "pending") {
     return [
@@ -16,14 +20,12 @@ function quickActionsFor(status, paymentMethod) {
   }
   if (status === "confirmed" || status === "paid") {
     return [
-      { label: "Pack", target: "fulfilled", style: "bg-indigo-600 hover:bg-indigo-700" },
+      { label: "Mark delivered", target: "delivered", style: "bg-green-600 hover:bg-green-700" },
       { label: "Cancel", target: "cancelled", style: "bg-red-600 hover:bg-red-700", confirm: "Cancel this confirmed order?" },
     ];
   }
-  if (status === "fulfilled") {
-    return [{ label: "Mark shipped", target: "shipped", style: "bg-violet-600 hover:bg-violet-700" }];
-  }
-  if (status === "shipped") {
+  // Legacy orders in "fulfilled" / "shipped" can still be marked delivered.
+  if (status === "fulfilled" || status === "shipped") {
     return [{ label: "Mark delivered", target: "delivered", style: "bg-green-600 hover:bg-green-700" }];
   }
   return [];
