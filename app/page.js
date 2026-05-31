@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import ProductCard from "../components/ProductCard";
 import CategoryTabs from "../components/CategoryTabs";
 import NewsletterForm from "../components/NewsletterForm";
@@ -147,40 +146,6 @@ export default async function Home() {
           <NewsletterForm />
         </div>
       </section>
-
-      {/* 10. JOURNAL */}
-      {(settings.journalPosts || []).length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 py-16">
-          <div className="text-center mb-10">
-            <p className="text-[#c9a961] text-xs font-semibold tracking-[0.2em] uppercase mb-2">{settings.journalEyebrow}</p>
-            <h2 className="font-serif text-3xl md:text-4xl text-[#1a2b4a]">{settings.journalTitle}</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {settings.journalPosts.map((j, i) => {
-              const Wrapper = j.href ? Link : "article";
-              const wrapperProps = j.href ? { href: j.href } : {};
-              return (
-                <Wrapper key={i} {...wrapperProps} className="group block cursor-pointer">
-                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden mb-5">
-                    {j.image && (
-                      <Image
-                        src={j.image}
-                        alt={j.title || ""}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                      />
-                    )}
-                  </div>
-                  {j.category && <p className="text-[#c9a961] text-[11px] font-semibold tracking-[0.2em] uppercase mb-2">{j.category}</p>}
-                  <h3 className="font-serif text-xl text-[#1a2b4a] leading-snug mb-2 group-hover:text-[#c9a961] transition-colors">{j.title}</h3>
-                  {j.date && <p className="text-xs text-gray-500">{j.date}</p>}
-                </Wrapper>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
