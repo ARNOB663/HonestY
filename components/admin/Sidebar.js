@@ -62,7 +62,10 @@ const GROUPS = [
 export default function Sidebar({ user }) {
   const pathname = usePathname();
   return (
-    <aside className="w-64 shrink-0 bg-[#0f1a30] text-white min-h-screen flex flex-col">
+    // sticky + h-screen so the sidebar stays pinned to the viewport as the
+    // main content scrolls. Without this the sidebar grows with the page and
+    // the footer (View store / Sign out) ends up below the fold.
+    <aside className="w-64 shrink-0 bg-[#0f1a30] text-white sticky top-0 h-screen flex flex-col">
       <div className="px-5 py-5 border-b border-white/5">
         <Link href="/admin" className="font-serif text-xl tracking-wide">Honesty Admin</Link>
         <p className="text-[11px] text-white/50 mt-1 truncate">{user?.email}</p>
