@@ -1,5 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
-
 // Content-Security-Policy. Notes:
 //  - 'unsafe-inline' on script-src is required because Next.js inlines its
 //    hydration bootstrap; moving to a nonce would require a per-request layer.
@@ -49,25 +47,4 @@ const nextConfig = {
   },
 };
 
-// Wrap with Sentry. `tunnelRoute: "/monitoring"` makes the browser send error
-// reports to /monitoring on your own domain, which Sentry then forwards. This:
-//   1. bypasses ad blockers (which often kill direct calls to sentry.io)
-//   2. means we don't need to add Sentry hosts to CSP connect-src
-//   3. keeps the actual ingest DSN out of the client bundle
-//
-// Source map upload is OPT-IN via env: only enabled when SENTRY_AUTH_TOKEN +
-// SENTRY_ORG + SENTRY_PROJECT are all set. Without them errors still arrive,
-// stack traces just point to minified code. `sourcemaps.disable` mutes the
-// loud build-time warning when the token isn't configured.
-const sourceMapsEnabled = !!(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
-
-export default withSentryConfig(nextConfig, {
-  tunnelRoute: "/monitoring",
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  sourcemaps: { disable: !sourceMapsEnabled },
-  release: { create: sourceMapsEnabled },
-});
+export default nextConfig;

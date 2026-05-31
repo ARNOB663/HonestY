@@ -1,13 +1,11 @@
 "use client";
 // Root-level error boundary. Catches errors that escape every other error.js
-// boundary (including layout errors). Reports to Sentry then renders a minimal
-// fallback so the site never shows a white screen.
-import * as Sentry from "@sentry/nextjs";
+// boundary (including layout errors). Renders a minimal fallback so the site
+// never shows a white screen.
 import { useEffect } from "react";
 
 export default function GlobalError({ error, reset }) {
   useEffect(() => {
-    Sentry.captureException(error);
     console.error("Global error:", error);
   }, [error]);
 
@@ -17,7 +15,7 @@ export default function GlobalError({ error, reset }) {
         <div style={{ maxWidth: 480, margin: "10vh auto", padding: 24, textAlign: "center" }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Something went wrong</h1>
           <p style={{ fontSize: 14, color: "#555", marginBottom: 20 }}>
-            We&apos;ve been notified. Please refresh the page, or head back home.
+            Please refresh the page, or head back home.
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button
