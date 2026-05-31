@@ -15,6 +15,7 @@ function bustStorefrontCaches(slug) {
     revalidatePath("/products");
     if (slug) revalidatePath(`/products/${slug}`);
     revalidateTag("admin-dashboard");
+    revalidateTag("admin-products");
   } catch {}
 }
 

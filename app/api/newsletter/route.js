@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
 import { checkOrigin } from "../../../lib/origin";
@@ -31,6 +32,7 @@ export async function POST(req) {
 
   await dbConnect();
   // Idempotent: re-subscribing is a no-op, not an error.
+  try { revalidateTag("admin-subscribers"); } catch {}
   await Subscriber.updateOne(
     { email },
     { $setOnInsert: { email, source: "newsletter" } },

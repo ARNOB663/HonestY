@@ -274,7 +274,7 @@ export async function POST(req) {
     });
 
     sendOrderConfirmation(order).catch(() => {});
-    try { revalidateTag("admin-dashboard"); } catch {}
+    try { revalidateTag("admin-dashboard"); revalidateTag("admin-orders"); revalidateTag("admin-customers"); } catch {}
 
     return NextResponse.json({ ok: true, id: order._id.toString(), total });
   } catch (e) {

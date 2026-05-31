@@ -1,11 +1,26 @@
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import Subscriber from "../../../models/Subscriber";
 
 export const dynamic = "force-dynamic";
 
+const cachedSubscribers = unstable_cache(
+  async () => {
+    await dbConnect();
+    const subs = await Subscriber.find({}).sort({ createdAt: -1 }).limit(1000).lean();
+    return subs.map((s) => ({
+      _id: String(s._id),
+      email: s.email,
+      source: s.source,
+      createdAt: s.createdAt,
+    }));
+  },
+  ["admin-subscribers-v1"],
+  { revalidate: 60, tags: ["admin-subscribers"] }
+);
+
 export default async function AdminSubscribers() {
-  await dbConnect();
-  const subs = await Subscriber.find({}).sort({ createdAt: -1 }).limit(1000).lean();
+  const subs = await cachedSubscribers();
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -31,7 +46,7 @@ export default async function AdminSubscribers() {
           <tbody className="divide-y divide-gray-100">
             {subs.length === 0 && <tr><td colSpan={3} className="px-4 py-10 text-center text-gray-500">No subscribers yet.</td></tr>}
             {subs.map((s) => (
-              <tr key={String(s._id)}>
+              <tr key={s._id}>
                 <td className="px-4 py-2">{s.email}</td>
                 <td className="px-4 py-2 text-gray-500">{s.source}</td>
                 <td className="px-4 py-2 text-gray-500">{new Date(s.createdAt).toLocaleDateString()}</td>

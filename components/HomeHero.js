@@ -8,7 +8,10 @@ import { getHeroLayout } from "../lib/heroLayouts";
 
 function MainHero({ settings, priority }) {
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-[#f5f1e8] min-h-[320px] h-full">
+    // Aspect-ratio fallback for mobile prevents CLS while the hero image
+    // loads. On desktop the parent grid imposes its own height, so the
+    // aspect-ratio is unused there.
+    <div className="relative rounded-2xl overflow-hidden bg-[#f5f1e8] min-h-[320px] h-full" style={{ aspectRatio: "16 / 10" }}>
       {settings.heroImage && (
         <Image
           src={settings.heroImage}
@@ -50,7 +53,7 @@ function MiniCard({ mini, wide, defaultColor }) {
 
   if (wide) {
     return (
-      <div className="relative rounded-2xl overflow-hidden min-h-[200px] h-full" style={{ backgroundColor: bg }}>
+      <div className="relative rounded-2xl overflow-hidden min-h-[200px] h-full" style={{ backgroundColor: bg, aspectRatio: "16 / 6" }}>
         <div className="grid grid-cols-2 h-full">
           <div className="p-6 md:p-8 flex flex-col justify-center">
             {mini.eyebrow && <p className="text-[#1a2b4a]/70 text-sm font-medium mb-2">{mini.eyebrow}</p>}
@@ -81,7 +84,7 @@ function MiniCard({ mini, wide, defaultColor }) {
     <Link
       href={mini.href || "/products"}
       className="relative rounded-2xl overflow-hidden p-6 flex flex-col group min-h-[200px] h-full"
-      style={{ backgroundColor: bg }}
+      style={{ backgroundColor: bg, aspectRatio: "1 / 1" }}
     >
       {mini.badgeText && (
         <span className="self-center inline-flex items-center gap-1 bg-[#b8553a] text-white text-[11px] font-bold tracking-[0.15em] uppercase px-3 py-1 rounded-full shadow-sm">

@@ -1,7 +1,10 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 
-export default function GlobalError({ reset }) {
+export default function GlobalError({ error, reset }) {
+  // Surface in console + Vercel logs so we can actually diagnose what broke.
+  useEffect(() => { console.error("Storefront error:", error); }, [error]);
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">

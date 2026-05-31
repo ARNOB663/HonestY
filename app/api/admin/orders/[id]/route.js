@@ -43,7 +43,7 @@ export const PATCH = withAdmin(async ({ body, params, session }) => {
   if (statusChanged) {
     sendStatusUpdate(order, update.status).catch(() => {});
   }
-  try { revalidateTag("admin-dashboard"); } catch {}
+  try { revalidateTag("admin-dashboard"); revalidateTag("admin-orders"); revalidateTag("admin-customers"); } catch {}
 
   return { ok: true };
 });

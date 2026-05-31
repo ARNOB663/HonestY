@@ -1,12 +1,30 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import SalesGroup from "../../../models/SalesGroup";
 
 export const dynamic = "force-dynamic";
 
+const cachedSalesGroups = unstable_cache(
+  async () => {
+    await dbConnect();
+    const groups = await SalesGroup.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+    return groups.map((g) => ({
+      _id: String(g._id),
+      title: g.title,
+      subtitle: g.subtitle || "",
+      slug: g.slug,
+      active: g.active,
+      sortOrder: g.sortOrder || 0,
+      productSlugs: g.productSlugs || [],
+    }));
+  },
+  ["admin-sales-v1"],
+  { revalidate: 60, tags: ["admin-sales"] }
+);
+
 export default async function AdminSalesList() {
-  await dbConnect();
-  const groups = await SalesGroup.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+  const groups = await cachedSalesGroups();
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -37,7 +55,7 @@ export default async function AdminSalesList() {
               </td></tr>
             )}
             {groups.map((g) => (
-              <tr key={String(g._id)}>
+              <tr key={g._id}>
                 <td className="px-4 py-2">
                   <p className="font-medium">{g.title}</p>
                   {g.subtitle && <p className="text-xs text-gray-500">{g.subtitle}</p>}
@@ -51,7 +69,7 @@ export default async function AdminSalesList() {
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <Link href={`/admin/sales/${String(g._id)}`} className="text-blue-600 hover:underline text-xs">Edit</Link>
+                  <Link href={`/admin/sales/${g._id}`} className="text-blue-600 hover:underline text-xs">Edit</Link>
                 </td>
               </tr>
             ))}

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import SalesGroup from "../../../../models/SalesGroup";
 
 function bustHome() {
-  try { revalidatePath("/"); } catch {}
+  try { revalidatePath("/"); revalidateTag("admin-sales"); } catch {}
 }
 
 function makeSlug(title) {
