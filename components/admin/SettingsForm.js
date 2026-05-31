@@ -1,12 +1,55 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import MediaPickerModal from "./MediaPickerModal";
 
 const FIELD = "w-full border border-gray-300 rounded px-3 py-2 text-sm";
 const LABEL = "block text-xs uppercase tracking-wide text-gray-600 mb-1";
 const SECTION = "bg-white border border-gray-200 rounded-lg p-5 space-y-4";
 
 const ICON_OPTIONS = ["shipping", "returns", "secure", "support", "leaf", "phone", "shield", "star"];
+
+// Image field with live thumbnail + Upload/Pick button. Pasting a URL still
+// works; the picker is the alternative for non-developers.
+function ImagePicker({ label = "Image", value, onChange }) {
+  const [picking, setPicking] = useState(false);
+  return (
+    <div>
+      <label className={LABEL}>{label}</label>
+      <div className="flex items-start gap-3">
+        <div className="w-16 h-16 border border-gray-200 rounded overflow-hidden bg-gray-50 shrink-0 flex items-center justify-center">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[9px] text-gray-400">no image</span>
+          )}
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <input
+            className={FIELD}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Paste URL or upload"
+          />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setPicking(true)} className="text-xs bg-[#1a2b4a] text-white px-3 py-1 rounded">
+              Upload / Pick
+            </button>
+            {value && (
+              <button type="button" onClick={() => onChange("")} className="text-xs text-red-600 hover:underline">
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      {picking && (
+        <MediaPickerModal onClose={() => setPicking(false)} onPick={(url) => onChange(url)} />
+      )}
+    </div>
+  );
+}
 
 export default function SettingsForm({ initial }) {
   const router = useRouter();
@@ -346,7 +389,9 @@ export default function SettingsForm({ initial }) {
             <div key={i} className="border border-gray-200 rounded p-4 grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
               <div><label className={LABEL}>Slug (collection)</label><input className={FIELD} value={c.slug} onChange={(e) => updateItem("homeCategories", i, { slug: e.target.value })} placeholder="fashion" /></div>
               <div><label className={LABEL}>Title</label><input className={FIELD} value={c.title} onChange={(e) => updateItem("homeCategories", i, { title: e.target.value })} /></div>
-              <div><label className={LABEL}>Image URL</label><input className={FIELD} value={c.image} onChange={(e) => updateItem("homeCategories", i, { image: e.target.value })} /></div>
+              <div className="md:col-span-1">
+                <ImagePicker label="Image" value={c.image} onChange={(v) => updateItem("homeCategories", i, { image: v })} />
+              </div>
               <button type="button" onClick={() => removeItem("homeCategories", i)} className="text-xs text-red-600 hover:underline justify-self-start col-span-1">Remove</button>
             </div>
           ))}
@@ -359,7 +404,7 @@ export default function SettingsForm({ initial }) {
           <h2 className="font-semibold">Brand story</h2>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={LABEL}>Eyebrow</label><input className={FIELD} value={form.brandStoryEyebrow} onChange={set("brandStoryEyebrow")} /></div>
-            <div><label className={LABEL}>Image URL</label><input className={FIELD} value={form.brandStoryImage} onChange={set("brandStoryImage")} /></div>
+            <ImagePicker label="Image" value={form.brandStoryImage} onChange={(v) => setForm((f) => ({ ...f, brandStoryImage: v }))} />
           </div>
           <div><label className={LABEL}>Title (use \n for line break)</label><input className={FIELD} value={form.brandStoryTitle} onChange={set("brandStoryTitle")} /></div>
           <div><label className={LABEL}>Body</label><textarea rows={6} className={FIELD} value={form.brandStoryBody} onChange={set("brandStoryBody")} /></div>
@@ -385,7 +430,7 @@ export default function SettingsForm({ initial }) {
                 <div><label className={LABEL}>Link (optional)</label><input className={FIELD} value={p.href} onChange={(e) => updateItem("journalPosts", i, { href: e.target.value })} /></div>
               </div>
               <div><label className={LABEL}>Title</label><input className={FIELD} value={p.title} onChange={(e) => updateItem("journalPosts", i, { title: e.target.value })} /></div>
-              <div><label className={LABEL}>Image URL</label><input className={FIELD} value={p.image} onChange={(e) => updateItem("journalPosts", i, { image: e.target.value })} /></div>
+              <ImagePicker label="Image" value={p.image} onChange={(v) => updateItem("journalPosts", i, { image: v })} />
               <button type="button" onClick={() => removeItem("journalPosts", i)} className="text-xs text-red-600 hover:underline">Remove</button>
             </div>
           ))}
