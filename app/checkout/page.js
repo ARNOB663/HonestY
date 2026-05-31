@@ -105,6 +105,7 @@ export default function CheckoutPage() {
         setForm((f) => ({
           ...f,
           name: f.name || u.name || "",
+          email: f.email || u.email || session?.user?.email || "",
           phone: f.phone || u.phone || "",
           line1: f.line1 || a.line1 || "",
           area: f.area || a.area || "",
@@ -154,7 +155,11 @@ export default function CheckoutPage() {
             Thanks, {session?.user?.name || session?.user?.email || form.name || form.email}. We&apos;ll contact you shortly to confirm.
           </p>
           {orderId && <p className="mt-1 text-xs text-gray-400">Order #{orderId.slice(-6)}</p>}
-          <p className="mt-3 text-xs text-gray-500">A confirmation email is on its way{session?.user?.email ? ` to ${session.user.email}` : form.email ? ` to ${form.email}` : ""}.</p>
+          <p className="mt-3 text-xs text-gray-500">
+            {form.email
+              ? `A confirmation email is on its way to ${form.email}.`
+              : "We'll contact you on your mobile number to confirm."}
+          </p>
           <div className="flex items-center justify-center gap-2 mt-6">
             {session?.user ? (
               <Link href="/account" className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-6 py-2.5 rounded text-sm hover:bg-[#1a2b4a] hover:text-white transition-colors">
@@ -214,7 +219,9 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         items: items.map((i) => ({ slug: i.slug, qty: i.qty })),
         shippingAddress,
-        email: isGuest ? form.email.trim().toLowerCase() : undefined,
+        // Always send the form email (logged-in users may have edited it for
+        // this order; guests may leave it blank).
+        email: form.email.trim().toLowerCase() || undefined,
         discountCode: applied?.code,
         payment: {
           method: payMethod,
@@ -273,21 +280,23 @@ export default function CheckoutPage() {
             <div className="space-y-3">
               <label htmlFor="co-name" className="sr-only">Full name</label>
               <input id="co-name" className={inputCls} placeholder="Full name" value={form.name} onChange={set("name")} required autoComplete="name" />
-              {isGuest && (
-                <>
-                  <label htmlFor="co-email" className="sr-only">Email</label>
-                  <input
-                    id="co-email"
-                    className={inputCls}
-                    type="email"
-                    placeholder="Email (for order updates)"
-                    value={form.email}
-                    onChange={set("email")}
-                    required
-                    autoComplete="email"
-                  />
-                </>
-              )}
+              <div>
+                <label htmlFor="co-email" className="sr-only">Email</label>
+                <input
+                  id="co-email"
+                  className={inputCls}
+                  type="email"
+                  placeholder={isGuest ? "Email (optional, for order updates)" : "Email"}
+                  value={form.email}
+                  onChange={set("email")}
+                  autoComplete="email"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  {isGuest
+                    ? "Optional — provide one to get order confirmation and updates by email."
+                    : "We'll send order updates here. You can change it for this order only."}
+                </p>
+              </div>
               <label htmlFor="co-phone" className="sr-only">Mobile number</label>
               <input
                 id="co-phone"

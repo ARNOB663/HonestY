@@ -101,14 +101,22 @@ export async function POST(req) {
     return bad("Enter a valid 11-digit Bangladeshi mobile number (e.g. 01XXXXXXXXX)");
   }
 
-  // Guest checkout: when not signed in we require an email on the body so the
-  // customer can later find the order via /track.
+  // Email is OPTIONAL for guests (they can still place a COD order without one,
+  // but will get no email confirmation and can't use /track without it).
+  // For logged-in users we default to their session email but let them override
+  // for this order (e.g. work address). If a form email is provided in any case,
+  // it must be a valid format and within length.
   const sessionEmail = session?.user?.email?.toLowerCase();
-  const guestEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const userEmail = sessionEmail || guestEmail;
-  if (!userEmail || !EMAIL_RE.test(userEmail) || userEmail.length > 254) {
-    return bad("Enter a valid email address to receive order updates");
+  const formEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const userEmail = formEmail || sessionEmail || "";
+  if (userEmail) {
+    if (!EMAIL_RE.test(userEmail) || userEmail.length > 254) {
+      return bad("Enter a valid email address");
+    }
   }
+  // No email at all? Only allowed for COD guest orders — prepaid (bKash/Nagad)
+  // still needs an email so we can confirm the payment by reply.
+  // (We do that check after we know `method` below.)
 
   await dbConnect();
 
@@ -120,6 +128,10 @@ export async function POST(req) {
   if (method === "bkash" && settingsDoc.enableBkash === false) return bad("bKash is currently disabled");
   if (method === "nagad" && settingsDoc.enableNagad === false) return bad("Nagad is currently disabled");
   if (method === "cod" && settingsDoc.enableCod === false) return bad("Cash on Delivery is currently disabled");
+  // For prepaid orders we need an email so the admin can confirm the payment.
+  if (method !== "cod" && !userEmail) {
+    return bad("Email is required for bKash / Nagad orders");
+  }
   let payerNumber, txnId;
   if (method !== "cod") {
     payerNumber = String(pay.payerNumber || "").trim();
