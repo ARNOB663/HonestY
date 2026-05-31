@@ -43,8 +43,16 @@ export default function StaffManager({ initial, currentEmail }) {
     }
   }
 
-  async function demote(id, email) {
+  async function demote(id, email, isEnvAdmin) {
     if (email === currentEmail) { alert("You can't demote yourself."); return; }
+    if (isEnvAdmin) {
+      alert(
+        `${email} is an owner (listed in ADMIN_EMAIL on Vercel). ` +
+        `Removing them here would silently re-grant admin on their next login. ` +
+        `To actually remove them: Vercel → Settings → Environment Variables → ADMIN_EMAIL → edit → save.`
+      );
+      return;
+    }
     if (!confirm(`Remove admin access for ${email}?`)) return;
     const res = await fetch(`/api/admin/staff/${id}`, {
       method: "PATCH",
@@ -111,13 +119,38 @@ export default function StaffManager({ initial, currentEmail }) {
           <tbody className="divide-y divide-gray-100">
             {staff.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-gray-500">No admins.</td></tr>}
             {staff.map((u) => (
-              <tr key={u._id}>
+              <tr key={u._id} className={u.isEnvAdmin ? "bg-amber-50/50" : ""}>
                 <td className="px-4 py-2">{u.name || "—"}</td>
-                <td className="px-4 py-2">{u.email}{u.email === currentEmail && <span className="ml-2 text-xs text-gray-400">(you)</span>}</td>
-                <td className="px-4 py-2 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-2">
+                  {u.email}
+                  {u.email === currentEmail && <span className="ml-2 text-xs text-gray-400">(you)</span>}
+                  {u.isEnvAdmin && (
+                    <span
+                      className="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded"
+                      title="This account is in the ADMIN_EMAIL env var on Vercel. To remove, edit Vercel env."
+                    >
+                      🔒 Owner
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-gray-500">
+                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : <span className="italic text-gray-400">never signed in</span>}
+                </td>
                 <td className="px-4 py-2 text-right">
                   {u.email !== currentEmail && (
-                    <button onClick={() => demote(u._id, u.email)} className="text-red-600 hover:underline text-xs">Remove admin</button>
+                    u.isEnvAdmin ? (
+                      <button
+                        onClick={() => demote(u._id, u.email, true)}
+                        className="text-gray-400 hover:text-amber-700 text-xs"
+                        title="Owner — managed in Vercel env, not removable here"
+                      >
+                        How to remove
+                      </button>
+                    ) : (
+                      <button onClick={() => demote(u._id, u.email, false)} className="text-red-600 hover:underline text-xs">
+                        Remove admin
+                      </button>
+                    )
                   )}
                 </td>
               </tr>

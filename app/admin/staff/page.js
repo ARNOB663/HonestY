@@ -5,6 +5,13 @@ import { dbConnect } from "../../../lib/mongodb";
 import User from "../../../models/User";
 import StaffManager from "../../../components/admin/StaffManager";
 
+function getEnvAdminEmails() {
+  return (process.env.ADMIN_EMAIL || "")
+    .split(/[,;|\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export const dynamic = "force-dynamic";
 
 const cachedStaff = unstable_cache(
@@ -19,7 +26,24 @@ const cachedStaff = unstable_cache(
 export default async function AdminStaff() {
   const session = await getServerSession(authOptions);
   const docs = await cachedStaff();
-  const initial = docs.map((u) => ({ _id: String(u._id), email: u.email, name: u.name, createdAt: u.createdAt }));
+  const envAdmins = getEnvAdminEmails();
+  // Merge DB admins + env-only admins (env emails that have never logged in
+  // and therefore have no DB row yet). Env entries are marked so the UI can
+  // visually flag them and disable the "Remove admin" action — demoting them
+  // would silently un-demote on their next login.
+  const dbByEmail = new Map(docs.map((u) => [u.email.toLowerCase(), u]));
+  const merged = [
+    ...docs.map((u) => ({
+      _id: String(u._id),
+      email: u.email,
+      name: u.name,
+      createdAt: u.createdAt,
+      isEnvAdmin: envAdmins.includes(u.email.toLowerCase()),
+    })),
+    ...envAdmins
+      .filter((e) => !dbByEmail.has(e))
+      .map((email) => ({ _id: `env:${email}`, email, name: null, createdAt: null, isEnvAdmin: true })),
+  ];
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">Staff</h1>
@@ -35,7 +59,7 @@ export default async function AdminStaff() {
           add everyone else here so you can revoke access in 2 clicks.
         </p>
       </div>
-      <StaffManager initial={initial} currentEmail={session?.user?.email} />
+      <StaffManager initial={merged} currentEmail={session?.user?.email} />
     </div>
   );
 }
