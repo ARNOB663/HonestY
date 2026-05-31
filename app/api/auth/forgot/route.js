@@ -30,6 +30,14 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   }
 
+  // Per-email rate limit: stops attackers from email-bombing one victim by
+  // rotating IPs. 3 reset emails per day per address is enough for any real user.
+  const emailRl = await rateLimit({ key: `forgot-email:${email}`, limit: 3, windowMs: 24 * 60 * 60 * 1000 });
+  if (!emailRl.ok) {
+    // Silent success — don't leak whether the address is tracked.
+    return NextResponse.json({ ok: true });
+  }
+
   await dbConnect();
   const user = await User.findOne({ email });
   // Only send to credential users (Google users don't have a password to reset).

@@ -4,6 +4,7 @@ import { dbConnect } from "../../../lib/mongodb";
 import User from "../../../models/User";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
 import { checkOrigin } from "../../../lib/origin";
+import { isDisposableEmail } from "../../../lib/disposableEmail";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,6 +36,18 @@ export async function POST(req) {
   }
   if (password.length < 8 || password.length > 200) {
     return NextResponse.json({ error: "Password must be 8–200 characters" }, { status: 400 });
+  }
+  if (isDisposableEmail(email)) {
+    return NextResponse.json({ error: "Please use a permanent email address" }, { status: 400 });
+  }
+  // Per-email rate limit: protects against distributed bots that rotate IPs
+  // but reuse the same email. 3 attempts/day per email is plenty for a real user.
+  const emailRl = await rateLimit({ key: `register-email:${email}`, limit: 3, windowMs: 24 * 60 * 60 * 1000 });
+  if (!emailRl.ok) {
+    return NextResponse.json({ error: "Too many attempts for this email" }, {
+      status: 429,
+      headers: { "Retry-After": String(emailRl.retryAfter) },
+    });
   }
 
   await dbConnect();
