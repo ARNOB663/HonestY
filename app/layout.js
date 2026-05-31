@@ -8,11 +8,23 @@ import ChromeGate from "../components/ChromeGate";
 import MobileBottomNav from "../components/MobileBottomNav";
 import { getStoreSettings } from "../lib/settings";
 
-const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
+// Performance: explicit display:"swap" so text paints with the system fallback
+// immediately and re-renders to web font when it arrives — no FOIT, lower LCP.
+// adjustFontFallback (default true) computes a size-adjusted system font so the
+// swap doesn't cause CLS. Trim weights to what we actually use: Inter body +
+// Cormorant 400/600.
+const inter = Inter({
+  variable: "--font-sans",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+});
 const cormorant = Cormorant_Garamond({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "600"],
+  display: "swap",
+  preload: true,
 });
 
 export const metadata = {

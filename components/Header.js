@@ -127,7 +127,9 @@ export default function Header({ announcement }) {
   return (
     <header className="sticky top-0 z-50 w-full">
       {announcement && (
-        <div className="bg-[#1a2b4a] text-white text-xs py-2 hidden sm:block">
+        // Fixed height (28px = py-2 + 12px text) so the bar reserves space
+        // before web font loads — prevents CLS when Cormorant swaps in.
+        <div className="bg-[#1a2b4a] text-white text-xs hidden sm:flex items-center justify-center" style={{ height: 28 }}>
           <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
             <p className="text-center tracking-wide">{announcement}</p>
           </div>
