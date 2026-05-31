@@ -1,8 +1,20 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import AuditLog from "../../../models/AuditLog";
 
 export const dynamic = "force-dynamic";
+
+// Audit reads are rare but logs are written on every admin action; cache the
+// recent slice for 30s. No tag — staleness is fine for ops review.
+const cachedRecentAudit = unstable_cache(
+  async () => {
+    await dbConnect();
+    return AuditLog.find({}).sort({ createdAt: -1 }).limit(500).lean();
+  },
+  ["admin-audit-recent-v1"],
+  { revalidate: 30 }
+);
 
 const METHOD_COLOR = {
   POST: "bg-green-50 text-green-700",
@@ -17,13 +29,18 @@ function safeRegex(s) {
 
 export default async function AdminAudit({ searchParams }) {
   const sp = (await searchParams) || {};
-  await dbConnect();
 
-  const filter = {};
-  if (sp.actor) filter.actorEmail = safeRegex(sp.actor);
-  if (sp.path) filter.path = safeRegex(sp.path);
-  if (sp.method) filter.method = sp.method;
-  if (sp.from || sp.to) {
+  // Filter the cached snapshot in-memory. Falls back to a fresh query when the
+  // date range goes deeper than the cache holds (≈ last 500 entries).
+  const hasOldDate = !!sp.from && (Date.now() - new Date(sp.from).getTime()) > 1000 * 60 * 60 * 24 * 7;
+
+  let logs;
+  if (hasOldDate) {
+    await dbConnect();
+    const filter = {};
+    if (sp.actor) filter.actorEmail = safeRegex(sp.actor);
+    if (sp.path) filter.path = safeRegex(sp.path);
+    if (sp.method) filter.method = sp.method;
     filter.createdAt = {};
     if (sp.from) filter.createdAt.$gte = new Date(sp.from);
     if (sp.to) {
@@ -31,9 +48,25 @@ export default async function AdminAudit({ searchParams }) {
       d.setDate(d.getDate() + 1);
       filter.createdAt.$lt = d;
     }
+    logs = await AuditLog.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+  } else {
+    const all = await cachedRecentAudit();
+    const actorRe = sp.actor ? safeRegex(sp.actor) : null;
+    const pathRe = sp.path ? safeRegex(sp.path) : null;
+    const fromTs = sp.from ? new Date(sp.from).getTime() : null;
+    const toTs = sp.to ? new Date(sp.to).getTime() + 1000 * 60 * 60 * 24 : null;
+    logs = all
+      .filter((l) => {
+        if (actorRe && !actorRe.test(l.actorEmail || "")) return false;
+        if (pathRe && !pathRe.test(l.path || "")) return false;
+        if (sp.method && l.method !== sp.method) return false;
+        const t = new Date(l.createdAt).getTime();
+        if (fromTs && t < fromTs) return false;
+        if (toTs && t >= toTs) return false;
+        return true;
+      })
+      .slice(0, 200);
   }
-
-  const logs = await AuditLog.find(filter).sort({ createdAt: -1 }).limit(200).lean();
   const hasFilter = sp.actor || sp.path || sp.method || sp.from || sp.to;
 
   return (

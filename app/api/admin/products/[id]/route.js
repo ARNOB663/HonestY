@@ -49,6 +49,8 @@ export const GET = withAdmin(async ({ params }) => {
   return NextResponse.json({ product: { ...product, _id: String(product._id) } });
 });
 
+const MAX_DESC_LEN = 50000;
+
 export const PUT = withAdmin(async ({ body, params }) => {
   const price = nonNegNumber(body.price);
   if (price === null) throw httpError("price must be ≥ 0");
@@ -56,12 +58,13 @@ export const PUT = withAdmin(async ({ body, params }) => {
   if (inventory === null) throw httpError("inventory must be ≥ 0");
   const compareAt = nonNegNumber(body.compareAtPrice);
   if (compareAt === null) throw httpError("compareAtPrice must be ≥ 0");
+  const rawDesc = typeof body.description === "string" ? body.description.slice(0, MAX_DESC_LEN) : "";
 
   await dbConnect();
   const update = {
     slug: String(body.slug || "").trim().toLowerCase(),
     title: String(body.title || "").trim(),
-    description: sanitizePageBody(body.description),
+    description: sanitizePageBody(rawDesc),
     price,
     compareAtPrice: compareAt ?? null,
     image: body.image,

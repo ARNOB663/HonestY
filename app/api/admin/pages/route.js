@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Page from "../../../../models/Page";
@@ -13,5 +14,6 @@ export const POST = withAdmin(async ({ body }) => {
     metaTitle: body.metaTitle,
     metaDescription: body.metaDescription,
   });
+  try { revalidateTag("admin-pages"); } catch {}
   return { ok: true };
 });

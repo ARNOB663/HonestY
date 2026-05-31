@@ -13,12 +13,14 @@ const DEFAULT_MINIS = [
   { eyebrow: "", title: "", href: "/products", image: "", badgeText: "", bgColor: "#dde5d8" },
 ];
 
-// Tiny svg-ish thumbnail of a layout preset for the picker.
+// Tiny svg-ish thumbnail of a layout preset for the picker. Uses staticGrid +
+// staticClassName so the responsive `lg:` classes from the storefront grid
+// (including `lg:h-[600px]`) never leak into the 60px-tall thumb.
 function LayoutThumb({ layout }) {
   return (
-    <div className={`${layout.grid} bg-gray-50 rounded p-1`} style={{ height: 60, gap: 3 }}>
+    <div className={`${layout.staticGrid} bg-gray-50 rounded p-1`} style={{ height: 60 }}>
       {layout.cells.map((cell, i) => (
-        <div key={i} className={`${cell.className} bg-[#1a2b4a]/15 rounded-sm`} />
+        <div key={i} className={`${cell.staticClassName} bg-[#1a2b4a]/15 rounded-sm`} />
       ))}
     </div>
   );
@@ -153,7 +155,7 @@ export default function HeroBannerManager({ initial }) {
         {/* Live blueprint preview — reflects the selected layout + current images. */}
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Live preview</p>
-          <div className={`${layout.grid} max-w-2xl`} style={{ minHeight: 180 }}>
+          <div className={`${layout.staticGrid} max-w-2xl`} style={{ height: 240 }}>
             {layout.cells.map((cell) => {
               const idx = cell.key === "hero" ? -1 : Number(cell.key.replace("card", "")) - 1;
               const data = cell.key === "hero"

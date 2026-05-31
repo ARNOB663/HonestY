@@ -18,18 +18,27 @@ export const PATCH = withAdmin(async ({ body, params, session }) => {
   if (body.adminNotes !== undefined) {
     update.adminNotes = String(body.adminNotes || "").slice(0, 2000);
   }
+  // Refund amount validation deferred until we read the order (need total to cap).
+  let pendingRefund;
   if (body.refundAmount !== undefined) {
     const n = Number(body.refundAmount);
-    update.refundAmount = Number.isFinite(n) && n >= 0 ? n : 0;
+    pendingRefund = Number.isFinite(n) && n >= 0 ? n : 0;
   }
   if (body.refundReason !== undefined) {
     update.refundReason = String(body.refundReason || "").slice(0, 500);
   }
-  if (Object.keys(update).length === 0) throw httpError("Nothing to update");
+  if (Object.keys(update).length === 0 && pendingRefund === undefined) throw httpError("Nothing to update");
 
   await dbConnect();
   const before = await Order.findById(params.id).lean();
   if (!before) throw httpError("Not found", 404);
+
+  if (pendingRefund !== undefined) {
+    if (pendingRefund > before.total) {
+      throw httpError(`Refund cannot exceed order total (${before.total})`);
+    }
+    update.refundAmount = Math.round(pendingRefund * 100) / 100;
+  }
 
   const ops = { $set: update };
   const statusChanged = update.status && update.status !== before.status;

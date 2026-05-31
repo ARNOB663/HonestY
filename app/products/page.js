@@ -2,9 +2,27 @@ import Link from "next/link";
 import ProductsFilter from "../../components/ProductsFilter";
 import { getAllProducts } from "../../lib/products";
 import { collections } from "../../data/products";
+import { getBaseUrl } from "../../lib/baseUrl";
 
-export const metadata = { title: "All Products — Honesty" };
 export const revalidate = 3600;
+
+export async function generateMetadata({ searchParams }) {
+  const { q } = await searchParams;
+  const base = getBaseUrl();
+  const title = q ? `Search: "${q}" — Honesty` : "All Products — Honesty";
+  const description = q
+    ? `Search results for "${q}" at Honesty — honestly made, honestly priced goods from Bangladesh.`
+    : "Browse every honestly-made product at Honesty — kitchen, home, paper, and more, shipped across Bangladesh.";
+  const url = q ? `${base}/products?q=${encodeURIComponent(q)}` : `${base}/products`;
+  return {
+    title,
+    description,
+    alternates: { canonical: q ? `${base}/products` : url },
+    openGraph: { title, description, url, type: "website" },
+    twitter: { card: "summary", title, description },
+    robots: q ? { index: false, follow: true } : undefined,
+  };
+}
 
 export default async function ProductsPage({ searchParams }) {
   const { q } = await searchParams;

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "../context/CartContext";
@@ -15,18 +15,51 @@ function lineKey(slug, variantId) {
 export default function CartDrawer() {
   const { items, setQty, remove, subtotal, drawerOpen, closeDrawer } = useCart();
   const shippingSettings = useShipping();
+  const panelRef = useRef(null);
+  const lastFocusRef = useRef(null);
 
-  // Close on ESC. Also lock body scroll while open so the page underneath
-  // doesn't move on touch devices.
+  // Close on ESC, lock body scroll, trap focus inside the drawer panel, and
+  // restore focus to the element that opened the drawer.
   useEffect(() => {
     if (!drawerOpen) return;
-    function onKey(e) { if (e.key === "Escape") closeDrawer(); }
-    document.addEventListener("keydown", onKey);
+    lastFocusRef.current = document.activeElement;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    function focusables() {
+      if (!panelRef.current) return [];
+      return Array.from(panelRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((el) => el.offsetParent !== null);
+    }
+
+    function onKey(e) {
+      if (e.key === "Escape") { closeDrawer(); return; }
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKey);
+    // Move focus into the panel on open.
+    queueMicrotask(() => {
+      const list = focusables();
+      if (list[0]) list[0].focus();
+    });
+
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      if (lastFocusRef.current && typeof lastFocusRef.current.focus === "function") {
+        lastFocusRef.current.focus();
+      }
     };
   }, [drawerOpen, closeDrawer]);
 
@@ -39,7 +72,7 @@ export default function CartDrawer() {
   const progressPct = freeThreshold > 0 ? Math.min(100, Math.round((subtotal / freeThreshold) * 100)) : 0;
 
   return (
-    <div className="fixed inset-0 z-[80]" role="dialog" aria-label="Cart">
+    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title">
       {/* Backdrop */}
       <button
         type="button"
@@ -48,10 +81,10 @@ export default function CartDrawer() {
         className="absolute inset-0 bg-black/40 animate-fade-in"
       />
       {/* Panel */}
-      <div className="absolute top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl flex flex-col animate-slide-in">
+      <div ref={panelRef} className="absolute top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl flex flex-col animate-slide-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#e8e4d8]">
-          <h2 className="font-serif text-lg text-[#1a2b4a]">
+          <h2 id="cart-drawer-title" className="font-serif text-lg text-[#1a2b4a]">
             Your cart {items.length > 0 && <span className="text-gray-400 text-sm font-sans">· {items.length}</span>}
           </h2>
           <button onClick={closeDrawer} aria-label="Close" className="text-gray-400 hover:text-[#1a2b4a] text-xl leading-none">×</button>

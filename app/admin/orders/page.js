@@ -1,11 +1,23 @@
 import Link from "next/link";
 import mongoose from "mongoose";
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import Order from "../../../models/Order";
 import { formatMoney } from "../../../lib/format";
 import OrderRowActions from "../../../components/admin/OrderRowActions";
 
 export const dynamic = "force-dynamic";
+
+// Cache the most recent 500 orders cluster-wide; filtering happens in memory
+// against this snapshot. Mutating order routes call revalidateTag("admin-orders").
+const cachedRecentOrders = unstable_cache(
+  async () => {
+    await dbConnect();
+    return Order.find({}).sort({ createdAt: -1 }).limit(500).lean();
+  },
+  ["admin-orders-recent-v1"],
+  { revalidate: 60, tags: ["admin-orders"] }
+);
 
 const STATUS_COLOR = {
   pending: "bg-amber-50 text-amber-700",
@@ -24,41 +36,69 @@ function safeRegex(s) {
 
 export default async function AdminOrders({ searchParams }) {
   const sp = (await searchParams) || {};
-  await dbConnect();
 
-  const filter = {};
-  if (sp.status) filter.status = sp.status;
-  if (sp.q) {
-    const q = String(sp.q).trim();
-    const re = safeRegex(q);
-    const orClauses = [
-      { userEmail: re },
-      { "shippingAddress.name": re },
-      { "shippingAddress.phone": re },
-      { "payment.txnId": safeRegex(q.toUpperCase()) },
-    ];
-    if (mongoose.isValidObjectId(q)) {
-      orClauses.push({ _id: new mongoose.Types.ObjectId(q) });
-    } else if (/^[a-f0-9]{6,23}$/i.test(q)) {
-      orClauses.push({
-        $expr: {
-          $regexMatch: { input: { $toString: "$_id" }, regex: q.toLowerCase() + "$", options: "i" },
-        },
-      });
-    }
-    filter.$or = orClauses;
-  }
-  if (sp.from || sp.to) {
-    filter.createdAt = {};
-    if (sp.from) filter.createdAt.$gte = new Date(sp.from);
-    if (sp.to) {
-      const d = new Date(sp.to);
-      d.setDate(d.getDate() + 1);
-      filter.createdAt.$lt = d;
-    }
-  }
+  // For filtered queries that need full-table coverage we still hit Mongo.
+  // For the common case (no filter or just status/q within recent 500) we
+  // serve from the cached snapshot.
+  const hasOldDate = !!sp.from && (Date.now() - new Date(sp.from).getTime()) > 1000 * 60 * 60 * 24 * 30;
 
-  const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+  let orders;
+  if (hasOldDate) {
+    await dbConnect();
+    const filter = {};
+    if (sp.status) filter.status = sp.status;
+    if (sp.q) {
+      const q = String(sp.q).trim();
+      const re = safeRegex(q);
+      const orClauses = [
+        { userEmail: re },
+        { "shippingAddress.name": re },
+        { "shippingAddress.phone": re },
+        { "payment.txnId": safeRegex(q.toUpperCase()) },
+      ];
+      if (mongoose.isValidObjectId(q)) {
+        orClauses.push({ _id: new mongoose.Types.ObjectId(q) });
+      } else if (/^[a-f0-9]{6,23}$/i.test(q)) {
+        orClauses.push({
+          $expr: { $regexMatch: { input: { $toString: "$_id" }, regex: q.toLowerCase() + "$", options: "i" } },
+        });
+      }
+      filter.$or = orClauses;
+    }
+    if (sp.from || sp.to) {
+      filter.createdAt = {};
+      if (sp.from) filter.createdAt.$gte = new Date(sp.from);
+      if (sp.to) {
+        const d = new Date(sp.to);
+        d.setDate(d.getDate() + 1);
+        filter.createdAt.$lt = d;
+      }
+    }
+    orders = await Order.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+  } else {
+    const all = await cachedRecentOrders();
+    const q = sp.q ? String(sp.q).trim().toLowerCase() : "";
+    const fromTs = sp.from ? new Date(sp.from).getTime() : null;
+    const toTs = sp.to ? new Date(sp.to).getTime() + 1000 * 60 * 60 * 24 : null;
+    orders = all
+      .filter((o) => {
+        if (sp.status && o.status !== sp.status) return false;
+        if (fromTs && new Date(o.createdAt).getTime() < fromTs) return false;
+        if (toTs && new Date(o.createdAt).getTime() >= toTs) return false;
+        if (q) {
+          const haystack = [
+            o.userEmail || "",
+            o.shippingAddress?.name || "",
+            o.shippingAddress?.phone || "",
+            o.payment?.txnId || "",
+            String(o._id),
+          ].join(" ").toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      })
+      .slice(0, 200);
+  }
 
   const qParams = new URLSearchParams();
   if (sp.status) qParams.set("status", sp.status);

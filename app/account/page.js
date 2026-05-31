@@ -59,7 +59,7 @@ function ProgressBar({ status }) {
   );
 }
 
-function OrderCard({ order: o, onCancel, cancelling }) {
+function OrderCard({ order: o, onCancel, cancelling, onResend, resending }) {
   return (
     <div className="bg-white border border-[#e8e4d8] rounded-lg p-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -88,8 +88,15 @@ function OrderCard({ order: o, onCancel, cancelling }) {
             </span>
           )}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="font-bold text-[#b8553a]">{formatMoney(o.total)}</span>
+          <button
+            onClick={() => onResend(o.id)}
+            disabled={resending}
+            className="text-xs text-[#1a2b4a] font-semibold hover:underline disabled:opacity-50"
+          >
+            {resending ? "Sending…" : "Resend email"}
+          </button>
           {CANCELLABLE.has(o.status) && (
             <button
               onClick={() => onCancel(o.id)}
@@ -116,9 +123,22 @@ export default function AccountPage() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [cancellingId, setCancellingId] = useState("");
+  const [resendingId, setResendingId] = useState("");
   const [ordersPage, setOrdersPage] = useState(0);
   const [hasMoreOrders, setHasMoreOrders] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  async function resendConfirmation(id) {
+    setResendingId(id);
+    const r = await fetch(`/api/account/orders/${id}/resend-confirmation`, { method: "POST" });
+    setResendingId("");
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      alert(data.error || "Could not send email");
+      return;
+    }
+    alert("Confirmation email sent.");
+  }
 
   async function loadMoreOrders() {
     setLoadingMore(true);
@@ -259,7 +279,14 @@ export default function AccountPage() {
               </div>
             )}
             {orders && orders.map((o) => (
-              <OrderCard key={o.id} order={o} onCancel={cancelOrder} cancelling={cancellingId === o.id} />
+              <OrderCard
+                key={o.id}
+                order={o}
+                onCancel={cancelOrder}
+                cancelling={cancellingId === o.id}
+                onResend={resendConfirmation}
+                resending={resendingId === o.id}
+              />
             ))}
             {hasMoreOrders && (
               <div className="text-center pt-2">

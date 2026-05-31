@@ -1,12 +1,21 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { dbConnect } from "../../../lib/mongodb";
 import Page from "../../../models/Page";
 
 export const dynamic = "force-dynamic";
 
+const cachedPages = unstable_cache(
+  async () => {
+    await dbConnect();
+    return Page.find({}).sort({ updatedAt: -1 }).lean();
+  },
+  ["admin-pages-list-v1"],
+  { revalidate: 60, tags: ["admin-pages"] }
+);
+
 export default async function AdminPages() {
-  await dbConnect();
-  const pages = await Page.find({}).sort({ updatedAt: -1 }).lean();
+  const pages = await cachedPages();
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

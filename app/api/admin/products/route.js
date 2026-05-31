@@ -25,6 +25,10 @@ export const GET = withAdmin(async () => {
   return NextResponse.json({ products });
 });
 
+// Hard cap on rich-text description to prevent a single product blowing up
+// page weight or DB doc size.
+const MAX_DESC_LEN = 50000;
+
 export const POST = withAdmin(async ({ body }) => {
   if (!body.slug || !body.title) throw httpError("slug and title required");
   const price = nonNegNumber(body.price);
@@ -33,12 +37,13 @@ export const POST = withAdmin(async ({ body }) => {
   if (inventory === null) throw httpError("inventory must be ≥ 0");
   const compareAt = nonNegNumber(body.compareAtPrice);
   if (compareAt === null) throw httpError("compareAtPrice must be ≥ 0");
+  const rawDesc = typeof body.description === "string" ? body.description.slice(0, MAX_DESC_LEN) : "";
 
   await dbConnect();
   const product = await Product.create({
     slug: String(body.slug).trim().toLowerCase(),
     title: String(body.title).trim(),
-    description: sanitizePageBody(body.description),
+    description: sanitizePageBody(rawDesc),
     price,
     compareAtPrice: compareAt,
     image: body.image,

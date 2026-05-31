@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import User from "../../../../../models/User";
@@ -11,5 +12,6 @@ export const PATCH = withAdmin(async ({ body, params }) => {
     if (target?.role === "admin" && admins <= 1) throw httpError("Cannot demote the last admin");
   }
   await User.findByIdAndUpdate(params.id, { role: body.role, $inc: { tokenVersion: 1 } });
+  try { revalidateTag("admin-staff"); } catch {}
   return { ok: true };
 });

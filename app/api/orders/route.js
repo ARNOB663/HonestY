@@ -37,9 +37,11 @@ async function rollback(decremented) {
   }
 }
 
-// Decrement inventory with a single conditional write per item.
-// Returns the slug+qty of every successful decrement so a failure can roll back.
-async function reserveStock(items) {
+// Decrement inventory with a single conditional write per item. Pass a mongo
+// session to participate in a transaction; without one each write is its own
+// best-effort op and the caller is responsible for rollback.
+async function reserveStock(items, opts = {}) {
+  const { session } = opts;
   const decremented = [];
   for (const it of items) {
     let ok;
@@ -47,21 +49,27 @@ async function reserveStock(items) {
       ok = await Product.findOneAndUpdate(
         { slug: it.slug, "variants.id": it.variantId, "variants.inventory": { $gte: it.qty } },
         { $inc: { "variants.$.inventory": -it.qty } },
-        { new: true }
+        { new: true, session }
       ).lean();
     } else {
       ok = await Product.findOneAndUpdate(
         { slug: it.slug, inventory: { $gte: it.qty } },
         { $inc: { inventory: -it.qty } },
-        { new: true }
+        { new: true, session }
       ).lean();
     }
-    if (!ok) {
-      return { failed: it, decremented };
-    }
+    if (!ok) return { failed: it, decremented };
     decremented.push(it);
   }
   return { decremented };
+}
+
+// Mongo error codes that mean transactions aren't available on this cluster
+// (standalone mongod, very old server, etc). We surface these to the fallback
+// non-transactional path so local devs without a replica set still work.
+const NO_TXN_CODES = new Set([20, 251, 263]);
+function isNoTxnError(e) {
+  return NO_TXN_CODES.has(e?.code) || /Transaction numbers are only allowed|replica set/i.test(String(e?.message || ""));
 }
 
 export async function POST(req) {
@@ -212,79 +220,162 @@ export async function POST(req) {
   const shipping = computeShippingByZone(afterDiscount, settings, addr.state);
   const total = round(afterDiscount + shipping);
 
-  // Reserve stock with per-item check-and-decrement. If any line fails,
-  // roll back what we already took and surface a clear out-of-stock error.
-  const { failed, decremented } = await reserveStock(items);
-  if (failed) {
-    await rollback(decremented);
-    return bad(`"${failed.title || failed.slug}" is out of stock`, 409);
-  }
+  const orderDoc = {
+    userEmail,
+    items,
+    subtotal,
+    shipping,
+    discountCode,
+    discountAmount,
+    total,
+    shippingAddress: {
+      name: addr.name,
+      phone: String(addr.phone).trim(),
+      line1: addr.line1,
+      city: addr.city,
+      state: addr.state,
+      zip: addr.zip,
+      country: addr.country,
+    },
+    payment: {
+      method,
+      payerNumber: payerNumber || undefined,
+      txnId: txnId || undefined,
+      verified: false,
+    },
+    status: "pending",
+  };
 
-  // Atomically claim a discount slot. If the cap was hit between our earlier
-  // read and now, this returns null and we abort.
-  let claimedDiscount = false;
-  if (discountCode) {
-    const claim = await Discount.findOneAndUpdate(
-      {
-        code: discountCode,
-        active: true,
-        $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }],
-        $expr: {
-          $or: [
-            { $eq: [{ $ifNull: ["$usageLimit", 0] }, 0] },
-            { $lt: [{ $ifNull: ["$usedCount", 0] }, "$usageLimit"] },
-          ],
-        },
-      },
-      { $inc: { usedCount: 1 } },
-      { new: true }
-    ).lean();
-    if (!claim) {
-      await rollback(decremented);
-      return bad("Discount code is no longer available", 409);
+  // Strongly-typed expected failures from inside the transaction. Anything
+  // else is treated as an unexpected error → 500.
+  const E_OUT_OF_STOCK = "OUT_OF_STOCK";
+  const E_DISCOUNT_GONE = "DISCOUNT_GONE";
+
+  async function placeOrderTxn() {
+    const mongoSession = await mongoose.startSession();
+    try {
+      let created;
+      await mongoSession.withTransaction(async () => {
+        const { failed } = await reserveStock(items, { session: mongoSession });
+        if (failed) {
+          const err = new Error(`${E_OUT_OF_STOCK}:${failed.title || failed.slug}`);
+          err.expected = E_OUT_OF_STOCK;
+          throw err;
+        }
+        if (discountCode) {
+          const claim = await Discount.findOneAndUpdate(
+            {
+              code: discountCode,
+              active: true,
+              $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }],
+              $expr: {
+                $or: [
+                  { $eq: [{ $ifNull: ["$usageLimit", 0] }, 0] },
+                  { $lt: [{ $ifNull: ["$usedCount", 0] }, "$usageLimit"] },
+                ],
+              },
+            },
+            { $inc: { usedCount: 1 } },
+            { new: true, session: mongoSession }
+          ).lean();
+          if (!claim) {
+            const err = new Error(E_DISCOUNT_GONE);
+            err.expected = E_DISCOUNT_GONE;
+            throw err;
+          }
+        }
+        const docs = await Order.create([orderDoc], { session: mongoSession });
+        created = docs[0];
+      });
+      return { order: created };
+    } finally {
+      await mongoSession.endSession().catch(() => {});
     }
-    claimedDiscount = true;
   }
 
+  // Pre-transaction fallback path (used when the cluster doesn't support
+  // multi-document transactions, e.g. local standalone mongod). Same semantics,
+  // best-effort rollback on failure.
+  async function placeOrderFallback() {
+    const { failed, decremented } = await reserveStock(items);
+    if (failed) {
+      await rollback(decremented);
+      return { expected: E_OUT_OF_STOCK, message: failed.title || failed.slug };
+    }
+    let claimedDiscount = false;
+    if (discountCode) {
+      const claim = await Discount.findOneAndUpdate(
+        {
+          code: discountCode,
+          active: true,
+          $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }],
+          $expr: {
+            $or: [
+              { $eq: [{ $ifNull: ["$usageLimit", 0] }, 0] },
+              { $lt: [{ $ifNull: ["$usedCount", 0] }, "$usageLimit"] },
+            ],
+          },
+        },
+        { $inc: { usedCount: 1 } },
+        { new: true }
+      ).lean();
+      if (!claim) {
+        await rollback(decremented);
+        return { expected: E_DISCOUNT_GONE };
+      }
+      claimedDiscount = true;
+    }
+    try {
+      const order = await Order.create(orderDoc);
+      return { order };
+    } catch (e) {
+      await rollback(decremented);
+      if (claimedDiscount) {
+        await Discount.updateOne({ code: discountCode }, { $inc: { usedCount: -1 } }).catch(() => {});
+      }
+      throw e;
+    }
+  }
+
+  let result;
   try {
-    const order = await Order.create({
-      userEmail,
-      items,
-      subtotal,
-      shipping,
-      discountCode,
-      discountAmount,
-      total,
-      shippingAddress: {
-        name: addr.name,
-        phone: String(addr.phone).trim(),
-        line1: addr.line1,
-        city: addr.city,
-        state: addr.state,
-        zip: addr.zip,
-        country: addr.country,
-      },
-      payment: {
-        method,
-        payerNumber: payerNumber || undefined,
-        txnId: txnId || undefined,
-        verified: false,
-      },
-      status: "pending",
-    });
-
-    sendOrderConfirmation(order).catch(() => {});
-    try { revalidateTag("admin-dashboard"); revalidateTag("admin-orders"); revalidateTag("admin-customers"); } catch {}
-
-    return NextResponse.json({ ok: true, id: order._id.toString(), total });
+    result = await placeOrderTxn();
   } catch (e) {
-    await rollback(decremented);
-    if (claimedDiscount) {
-      await Discount.updateOne({ code: discountCode }, { $inc: { usedCount: -1 } });
+    if (e.expected === E_OUT_OF_STOCK) {
+      const what = e.message.replace(`${E_OUT_OF_STOCK}:`, "");
+      return bad(`"${what}" is out of stock`, 409);
+    }
+    if (e.expected === E_DISCOUNT_GONE) {
+      return bad("Discount code is no longer available", 409);
     }
     if (e?.code === 11000 && e?.keyPattern && "payment.txnId" in e.keyPattern) {
       return bad("This Transaction ID has already been used for another order. Please double-check your TrxID.", 409);
     }
-    return bad(e.message || "Order failed", 500);
+    if (isNoTxnError(e)) {
+      // Cluster doesn't support transactions — fall back to best-effort path.
+      try {
+        result = await placeOrderFallback();
+      } catch (fe) {
+        if (fe?.code === 11000 && fe?.keyPattern && "payment.txnId" in fe.keyPattern) {
+          return bad("This Transaction ID has already been used for another order. Please double-check your TrxID.", 409);
+        }
+        return bad(fe.message || "Order failed", 500);
+      }
+    } else {
+      return bad(e.message || "Order failed", 500);
+    }
   }
+
+  if (result?.expected === E_OUT_OF_STOCK) {
+    return bad(`"${result.message}" is out of stock`, 409);
+  }
+  if (result?.expected === E_DISCOUNT_GONE) {
+    return bad("Discount code is no longer available", 409);
+  }
+
+  const order = result.order;
+  sendOrderConfirmation(order).catch(() => {});
+  try { revalidateTag("admin-dashboard"); revalidateTag("admin-orders"); revalidateTag("admin-customers"); } catch {}
+
+  return NextResponse.json({ ok: true, id: order._id.toString(), total });
 }

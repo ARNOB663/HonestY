@@ -1,6 +1,10 @@
 import { getAllProducts, collections } from "../lib/products";
 import { getBaseUrl } from "../lib/baseUrl";
 
+// Sitemap is generated on every request by default. Revalidate hourly so it's
+// cheap under bot traffic but still picks up new products within an hour.
+export const revalidate = 3600;
+
 export default async function sitemap() {
   const base = getBaseUrl();
   const now = new Date();

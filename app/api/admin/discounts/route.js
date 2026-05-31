@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import Discount from "../../../../models/Discount";
@@ -31,5 +32,6 @@ export const POST = withAdmin(async ({ body }) => {
     appliesTo,
     collectionSlug: appliesTo === "collection" ? String(body.collectionSlug || "").trim().toLowerCase().slice(0, 60) : "",
   });
+  try { revalidateTag("admin-discounts"); } catch {}
   return { ok: true };
 });

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
 import { dbConnect } from "../../../../lib/mongodb";
 import User from "../../../../models/User";
@@ -13,9 +14,11 @@ export const POST = withAdmin(async ({ body }) => {
     existing.role = "admin";
     if (name) existing.name = name;
     await existing.save();
+    try { revalidateTag("admin-staff"); } catch {}
     return { ok: true, promoted: true };
   }
   const passwordHash = await bcrypt.hash(password, 12);
   await User.create({ email: String(email).toLowerCase(), name, passwordHash, role: "admin" });
+  try { revalidateTag("admin-staff"); } catch {}
   return { ok: true };
 });

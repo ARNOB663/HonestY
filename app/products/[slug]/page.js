@@ -7,6 +7,7 @@ import { getStoreSettings } from "../../../lib/settings";
 import ProductCard from "../../../components/ProductCard";
 import { formatMoney } from "../../../lib/format";
 import { getBaseUrl } from "../../../lib/baseUrl";
+import { sanitizePageBody } from "../../../lib/sanitize";
 
 export const revalidate = 3600;
 
@@ -140,7 +141,7 @@ export default async function ProductPage({ params }) {
 
         <ProductInfoTabs
           specs={product.specs}
-          description={product.description}
+          description={sanitizePageBody(product.description)}
           warranty={product.warranty}
         />
 

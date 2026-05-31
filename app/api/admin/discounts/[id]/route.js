@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
 import { dbConnect } from "../../../../../lib/mongodb";
 import Discount from "../../../../../models/Discount";
@@ -25,11 +26,13 @@ export const PATCH = withAdmin(async ({ body, params }) => {
   }
 
   await Discount.findByIdAndUpdate(params.id, update);
+  try { revalidateTag("admin-discounts"); } catch {}
   return { ok: true };
 });
 
 export const DELETE = withAdmin(async ({ params }) => {
   await dbConnect();
   await Discount.findByIdAndDelete(params.id);
+  try { revalidateTag("admin-discounts"); } catch {}
   return { ok: true };
 });
