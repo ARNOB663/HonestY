@@ -2,7 +2,6 @@ import Link from "next/link";
 import ProductCard from "../components/ProductCard";
 import CategoryTabs from "../components/CategoryTabs";
 import NewsletterForm from "../components/NewsletterForm";
-import HomeHero from "../components/HomeHero";
 import VisualCategories from "../components/VisualCategories";
 import Testimonials from "../components/Testimonials";
 import BrandStory from "../components/BrandStory";
@@ -23,10 +22,7 @@ export default async function Home() {
 
   return (
     <div className="bg-[#fafaf7]">
-      {/* 1. HERO BANNER — layout determined by settings.heroLayout */}
-      <HomeHero settings={settings} />
-
-      {/* 2. SALE */}
+      {/* 1. SALE (only if products are on sale) */}
       {onSale.length > 0 && (
         <section className="bg-gradient-to-b from-[#fff7f1] to-[#fafaf7] py-14 border-y border-[#f0d9c8]">
           <div className="max-w-7xl mx-auto px-4">
@@ -78,17 +74,14 @@ export default async function Home() {
         )
       ))}
 
-      {/* 3. TRUST BADGES */}
-      <TrustBadges badges={settings.trustBadges} />
-
-      {/* 4. SHOP BY CATEGORY */}
+      {/* 2. SHOP BY CATEGORY */}
       <VisualCategories
         eyebrow={settings.categoriesEyebrow}
         title={settings.categoriesTitle}
         cards={settings.homeCategories}
       />
 
-      {/* 5. BEST SELLERS */}
+      {/* 3. BEST SELLERS */}
       <section className="bg-[#f5f1e8] py-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-10">
@@ -99,7 +92,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 6. FAVOURITES */}
+      {/* 4. TRUST BADGES — always after products, regardless of sale availability */}
+      <TrustBadges badges={settings.trustBadges} />
+
+      {/* 5. FAVOURITES */}
       {featured.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 py-16">
           <div className="text-center mb-10">

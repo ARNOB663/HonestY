@@ -65,7 +65,7 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [done, setDone] = useState(false);
   const [orderId, setOrderId] = useState("");
-  const [form, setForm] = useState({ name: "", email: "", phone: "", line1: "", area: "", city: "", state: "Dhaka", zip: "", country: "Bangladesh" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", line1: "", area: "", city: "", state: "Dhaka", country: "Bangladesh" });
   const [payMethod, setPayMethod] = useState("cod");
   const [payerNumber, setPayerNumber] = useState("");
   const [txnId, setTxnId] = useState("");
@@ -110,7 +110,6 @@ export default function CheckoutPage() {
           area: f.area || a.area || "",
           city: f.city || a.city || "",
           state: f.state && f.state !== "Dhaka" ? f.state : (a.state || "Dhaka"),
-          zip: f.zip || a.zip || "",
           country: f.country || a.country || "Bangladesh",
         }));
       })
@@ -206,7 +205,6 @@ export default function CheckoutPage() {
       line1: [form.line1, form.area].filter(Boolean).join(", "),
       city: form.city,
       state: form.state,
-      zip: form.zip,
       country: form.country,
       phone: form.phone,
     };
@@ -356,18 +354,10 @@ export default function CheckoutPage() {
                 onChange={(v) => setForm((f) => ({ ...f, area: v }))}
                 inputCls={inputCls}
               />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="co-zip" className="sr-only">Post code</label>
-                  <input id="co-zip" className={inputCls} placeholder="Post code" value={form.zip} onChange={set("zip")} required inputMode="numeric" autoComplete="postal-code" />
-                </div>
-                <div>
-                  <label htmlFor="co-country" className="sr-only">Country</label>
-                  <select id="co-country" className={inputCls} value={form.country} onChange={set("country")} required>
-                    <option value="Bangladesh">Bangladesh</option>
-                  </select>
-                </div>
-              </div>
+              <label htmlFor="co-country" className="sr-only">Country</label>
+              <select id="co-country" className={inputCls} value={form.country} onChange={set("country")} required>
+                <option value="Bangladesh">Bangladesh</option>
+              </select>
             </div>
           </div>
 

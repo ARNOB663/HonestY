@@ -105,15 +105,15 @@ export default async function ProductPage({ params }) {
           )}
           <h1 className="text-2xl md:text-3xl font-bold text-[#1a1a1a] mt-2 leading-snug">{product.title}</h1>
           <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <p className={`text-xs font-semibold ${inStock ? "text-[#16a34a]" : "text-red-600"}`}>
+            <p className={`text-xs font-semibold ${inStock ? "text-[#4a7c59]" : "text-[#b8553a]"}`}>
               {inStock ? "In Stock" : "Out of Stock"}
             </p>
-            <span className="text-2xl font-bold text-[#e53935]">{formatMoney(product.price)}</span>
+            <span className="text-2xl font-bold text-[#b8553a]">{formatMoney(product.price)}</span>
             {product.compareAtPrice && (
               <span className="text-gray-400 line-through text-sm">{formatMoney(product.compareAtPrice)}</span>
             )}
             {discount && (
-              <span className="bg-[#1a35d4] text-white text-xs font-bold px-2 py-0.5 rounded">-{discount}%</span>
+              <span className="bg-[#1a2b4a] text-white text-xs font-bold px-2 py-0.5 rounded">-{discount}%</span>
             )}
           </div>
         </div>

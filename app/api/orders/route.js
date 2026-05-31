@@ -94,7 +94,7 @@ export async function POST(req) {
   if (cartItems.length > 100) return bad("Too many items");
 
   const addr = body.shippingAddress || {};
-  if (!addr.name || !addr.line1 || !addr.city || !addr.zip || !addr.country) {
+  if (!addr.name || !addr.line1 || !addr.city || !addr.country) {
     return bad("Shipping address is incomplete");
   }
   if (!addr.phone || !/^01[3-9]\d{8}$/.test(String(addr.phone).trim())) {
@@ -234,7 +234,6 @@ export async function POST(req) {
       line1: addr.line1,
       city: addr.city,
       state: addr.state,
-      zip: addr.zip,
       country: addr.country,
     },
     payment: {

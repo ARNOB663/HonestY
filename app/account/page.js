@@ -161,7 +161,7 @@ export default function AccountPage() {
   const [profile, setProfile] = useState(null);
   const [orders, setOrders] = useState(null);
   const [tab, setTab] = useState("orders");
-  const [form, setForm] = useState({ name: "", phone: "", backupPhone: "", line1: "", area: "", city: "", state: "Dhaka", zip: "", country: "Bangladesh" });
+  const [form, setForm] = useState({ name: "", phone: "", backupPhone: "", line1: "", area: "", city: "", state: "Dhaka", country: "Bangladesh" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -234,7 +234,6 @@ export default function AccountPage() {
           area: a.area || "",
           city: a.city || "",
           state: a.state || "Dhaka",
-          zip: a.zip || "",
           country: a.country || "Bangladesh",
         });
       }
@@ -269,7 +268,6 @@ export default function AccountPage() {
           area: form.area,
           city: form.city,
           state: form.state,
-          zip: form.zip,
           country: form.country,
         },
       }),
@@ -427,12 +425,9 @@ export default function AccountPage() {
                   onChange={(v) => setForm((f) => ({ ...f, area: v }))}
                   inputCls={inputCls}
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <input className={inputCls} placeholder="Post code" value={form.zip} onChange={set("zip")} inputMode="numeric" />
-                  <select className={inputCls} value={form.country} onChange={set("country")}>
-                    <option value="Bangladesh">Bangladesh</option>
-                  </select>
-                </div>
+                <select className={inputCls} value={form.country} onChange={set("country")}>
+                  <option value="Bangladesh">Bangladesh</option>
+                </select>
               </div>
             </div>
 

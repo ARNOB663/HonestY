@@ -45,7 +45,7 @@ const GROUPS = [
     title: "Catalog",
     items: [
       { href: "/admin/products", label: "Products", icon: "products" },
-      { href: "/admin/media", label: "Media & Banners", icon: "media" },
+      { href: "/admin/media", label: "Media", icon: "media" },
       { href: "/admin/pages", label: "Pages", icon: "pages" },
     ],
   },

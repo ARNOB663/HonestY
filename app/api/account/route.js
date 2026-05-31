@@ -85,7 +85,6 @@ export async function PATCH(req) {
       area: cleanString(a.area, 100) || "",
       city: cleanString(a.city, 100) || "",
       state: cleanString(a.state, 60) || "",
-      zip: cleanString(a.zip, 20) || "",
       country: cleanString(a.country, 60) || "Bangladesh",
     };
   }
