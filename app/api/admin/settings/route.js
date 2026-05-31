@@ -88,6 +88,15 @@ export const PUT = withAdmin(async ({ body }) => {
   }), 6);
   if (trustBadges) update.trustBadges = trustBadges;
 
+  // Header navigation. Drop blank rows (no label or href). Cap at 12.
+  const navLinks = cleanArray(body.navLinks, (n) => {
+    const label = str(n?.label, 60);
+    const href = str(n?.href, 200);
+    if (!label || !href) return null;
+    return { label, href };
+  }, 12);
+  if (navLinks) update.navLinks = navLinks;
+
   const homeCategories = cleanArray(body.homeCategories, (c) => {
     if (!c?.slug || !c?.title) return null;
     return {

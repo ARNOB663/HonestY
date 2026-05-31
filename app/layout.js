@@ -38,7 +38,7 @@ export default async function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#fafaf7] text-[#1a2b4a] pb-16 md:pb-0">
         <Providers>
-          <ChromeGate><Header announcement={settings.announcement} /></ChromeGate>
+          <ChromeGate><Header announcement={settings.announcement} navLinks={settings.navLinks} /></ChromeGate>
           <main className="flex-1">{children}</main>
           <ChromeGate><Footer /></ChromeGate>
           <ChromeGate><ScrollToTop /></ChromeGate>

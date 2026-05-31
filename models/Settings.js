@@ -55,6 +55,13 @@ const FooterLinkSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Top header navigation link. Same shape as FooterLinkSchema but kept
+// separate so future fields (icon, target, group) don't bleed across.
+const NavLinkSchema = new mongoose.Schema(
+  { label: String, href: String },
+  { _id: false }
+);
+
 const FooterColumnSchema = new mongoose.Schema(
   {
     title: String,
@@ -88,6 +95,20 @@ const SettingsSchema = new mongoose.Schema(
     enableBkash: { type: Boolean, default: true },
     enableNagad: { type: Boolean, default: true },
     enableCod: { type: Boolean, default: true },
+
+    // Top header navigation links. Empty array = use the hardcoded fallback
+    // in Header.js. Anything else completely replaces the nav.
+    navLinks: {
+      type: [NavLinkSchema],
+      default: [
+        { label: "Home", href: "/" },
+        { label: "Shop All", href: "/products" },
+        { label: "Fashion", href: "/collections/fashion" },
+        { label: "Home & Living", href: "/collections/home-living" },
+        { label: "Beauty", href: "/collections/beauty" },
+        { label: "Wellness", href: "/collections/wellness" },
+      ],
+    },
 
     // Hero layout preset — which arrangement of banners renders on the homepage.
     heroLayout: {

@@ -40,6 +40,15 @@ export default function SettingsForm({ initial }) {
     favouritesEyebrow: initial?.favouritesEyebrow || "Editor's Picks",
     favouritesTitle: initial?.favouritesTitle || "This week's favourites",
 
+    navLinks: (initial?.navLinks?.length ? initial.navLinks : [
+      { label: "Home", href: "/" },
+      { label: "Shop All", href: "/products" },
+      { label: "Fashion", href: "/collections/fashion" },
+      { label: "Home & Living", href: "/collections/home-living" },
+      { label: "Beauty", href: "/collections/beauty" },
+      { label: "Wellness", href: "/collections/wellness" },
+    ]).map((n) => ({ label: n.label || "", href: n.href || "" })),
+
     trustBadges: (initial?.trustBadges?.length ? initial.trustBadges : [
       { title: "Free shipping", sub: "On every order over ৳2,000", icon: "shipping" },
       { title: "7-day returns", sub: "Easy, no-questions-asked", icon: "returns" },
@@ -123,6 +132,7 @@ export default function SettingsForm({ initial }) {
     { id: "shipping", label: "Shipping & Tax" },
     { id: "payment", label: "Payment" },
     { id: "sections", label: "Section titles" },
+    { id: "nav", label: "Header nav" },
     { id: "trust", label: "Trust badges" },
     { id: "categories", label: "Categories" },
     { id: "story", label: "Brand story" },
@@ -278,6 +288,29 @@ export default function SettingsForm({ initial }) {
               <div><label className={LABEL}>Title</label><input className={FIELD} value={form.favouritesTitle} onChange={set("favouritesTitle")} /></div>
             </div>
           </div>
+        </section>
+      )}
+
+      {tab === "nav" && (
+        <section className={SECTION}>
+          <h2 className="font-semibold">Header navigation</h2>
+          <p className="text-xs text-gray-500">Links that appear in the top header (desktop + mobile menu). Drag-free reordering — to move, edit the order by adding/removing.</p>
+          {form.navLinks.map((n, i) => (
+            <div key={i} className="border border-gray-200 rounded p-4 grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+              <div><label className={LABEL}>Label</label><input className={FIELD} value={n.label} onChange={(e) => updateItem("navLinks", i, { label: e.target.value })} placeholder="Fashion" /></div>
+              <div><label className={LABEL}>Link (URL or path)</label><input className={FIELD} value={n.href} onChange={(e) => updateItem("navLinks", i, { href: e.target.value })} placeholder="/collections/fashion" /></div>
+              <div className="md:col-span-2 flex items-center gap-3">
+                <button type="button" onClick={() => removeItem("navLinks", i)} className="text-xs text-red-600 hover:underline">Remove</button>
+                {i > 0 && (
+                  <button type="button" onClick={() => setForm((f) => { const a = [...f.navLinks]; [a[i-1], a[i]] = [a[i], a[i-1]]; return { ...f, navLinks: a }; })} className="text-xs text-gray-600 hover:underline">↑ Move up</button>
+                )}
+                {i < form.navLinks.length - 1 && (
+                  <button type="button" onClick={() => setForm((f) => { const a = [...f.navLinks]; [a[i], a[i+1]] = [a[i+1], a[i]]; return { ...f, navLinks: a }; })} className="text-xs text-gray-600 hover:underline">↓ Move down</button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={() => addItem("navLinks", { label: "", href: "/" })} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">+ Add nav link</button>
         </section>
       )}
 

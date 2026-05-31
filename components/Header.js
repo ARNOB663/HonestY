@@ -10,7 +10,8 @@ import Logo from "./Logo";
 import { SearchIcon, UserIcon, CartIcon, MenuIcon, XIcon, HeartIcon } from "./Icons";
 import { formatMoney } from "../lib/format";
 
-const NAV_LINKS = [
+// Fallback nav used when admin hasn't customized settings.navLinks yet.
+const DEFAULT_NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Shop All" },
   { href: "/collections/fashion", label: "Fashion" },
@@ -118,11 +119,15 @@ function SearchBox({ inputClass, formClass, onNavigate }) {
   );
 }
 
-export default function Header({ announcement }) {
+export default function Header({ announcement, navLinks }) {
   const { count, openDrawer } = useCart();
   const { count: wishCount } = useWishlist();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Use admin-configured nav if provided, otherwise fall back to defaults.
+  const NAV_LINKS = (navLinks && navLinks.length > 0)
+    ? navLinks.map((n) => ({ href: n.href, label: n.label }))
+    : DEFAULT_NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-50 w-full">
