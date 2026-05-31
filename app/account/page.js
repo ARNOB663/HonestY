@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatMoney, BD_DIVISIONS, getDistrictsForDivision, getThanasForDistrict } from "../../lib/format";
@@ -287,10 +287,18 @@ export default function AccountPage() {
   return (
     <div className="bg-[#fafaf7] min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="mb-8">
-          <p className="text-[#c9a961] text-xs font-semibold tracking-[0.2em] uppercase mb-1">My Account</p>
-          <h1 className="font-serif text-3xl text-[#1a2b4a]">Hi, {firstName}</h1>
-          <p className="text-sm text-gray-500 mt-1">{profile?.email}</p>
+        <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-[#c9a961] text-xs font-semibold tracking-[0.2em] uppercase mb-1">My Account</p>
+            <h1 className="font-serif text-3xl text-[#1a2b4a]">Hi, {firstName}</h1>
+            <p className="text-sm text-gray-500 mt-1">{profile?.email}</p>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="text-sm border border-[#1a2b4a] text-[#1a2b4a] font-medium px-4 py-2 rounded hover:bg-[#1a2b4a] hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
         </div>
 
         <div className="border-b border-[#e8e4d8] mb-6 flex gap-6">

@@ -154,7 +154,16 @@ export default function Header({ announcement }) {
                 {session?.user ? (
                   <>
                     <span className="block text-gray-500">Hi, {(session.user.name || session.user.email || "").split(" ")[0].split("@")[0]}</span>
-                    <Link href="/account" className="font-medium text-[#1a2b4a] block hover:text-[#c9a961] transition-colors">My Account</Link>
+                    <div className="flex items-center gap-1.5">
+                      <Link href="/account" className="font-medium text-[#1a2b4a] hover:text-[#c9a961] transition-colors">My Account</Link>
+                      <span className="text-gray-300">·</span>
+                      <button
+                        onClick={() => signOut({ callbackUrl: "/" })}
+                        className="text-gray-500 hover:text-[#b8553a] transition-colors"
+                      >
+                        Sign out
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
