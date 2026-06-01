@@ -16,7 +16,8 @@ export default function Logo({ size = "md", color = "#1a2b4a" }) {
           letterSpacing: "-0.01em",
         }}
       >
-        Honesty
+        Honest
+        <span style={{ fontSize: h * 1.15, fontWeight: 800 }}>y</span>
       </span>
       <span
         aria-hidden="true"
