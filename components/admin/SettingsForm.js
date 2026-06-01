@@ -114,16 +114,6 @@ export default function SettingsForm({ initial }) {
     brandStoryCtaHref: initial?.brandStoryCtaHref || "/products",
     brandStoryImage: initial?.brandStoryImage || "",
 
-    journalTitle: initial?.journalTitle || "Stories & guides",
-    journalEyebrow: initial?.journalEyebrow || "From the Journal",
-    journalPosts: (initial?.journalPosts || []).map((p) => ({
-      title: p.title || "",
-      date: p.date || "",
-      category: p.category || "",
-      image: p.image || "",
-      href: p.href || "",
-    })),
-
     testimonials: (initial?.testimonials || []).map((t) => ({
       name: t.name || "",
       role: t.role || "",
@@ -179,7 +169,6 @@ export default function SettingsForm({ initial }) {
     { id: "trust", label: "Trust badges" },
     { id: "categories", label: "Categories" },
     { id: "story", label: "Brand story" },
-    { id: "journal", label: "Journal" },
     { id: "testimonials", label: "Testimonials" },
     { id: "footer", label: "Footer" },
   ];
@@ -412,29 +401,6 @@ export default function SettingsForm({ initial }) {
             <div><label className={LABEL}>Button text</label><input className={FIELD} value={form.brandStoryCtaText} onChange={set("brandStoryCtaText")} /></div>
             <div><label className={LABEL}>Button link</label><input className={FIELD} value={form.brandStoryCtaHref} onChange={set("brandStoryCtaHref")} /></div>
           </div>
-        </section>
-      )}
-
-      {tab === "journal" && (
-        <section className={SECTION}>
-          <h2 className="font-semibold">Journal posts</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={LABEL}>Eyebrow</label><input className={FIELD} value={form.journalEyebrow} onChange={set("journalEyebrow")} /></div>
-            <div><label className={LABEL}>Title</label><input className={FIELD} value={form.journalTitle} onChange={set("journalTitle")} /></div>
-          </div>
-          {form.journalPosts.map((p, i) => (
-            <div key={i} className="border border-gray-200 rounded p-4 space-y-2">
-              <div className="grid grid-cols-3 gap-2">
-                <div><label className={LABEL}>Category</label><input className={FIELD} value={p.category} onChange={(e) => updateItem("journalPosts", i, { category: e.target.value })} /></div>
-                <div><label className={LABEL}>Date</label><input className={FIELD} value={p.date} onChange={(e) => updateItem("journalPosts", i, { date: e.target.value })} placeholder="May 2026" /></div>
-                <div><label className={LABEL}>Link (optional)</label><input className={FIELD} value={p.href} onChange={(e) => updateItem("journalPosts", i, { href: e.target.value })} /></div>
-              </div>
-              <div><label className={LABEL}>Title</label><input className={FIELD} value={p.title} onChange={(e) => updateItem("journalPosts", i, { title: e.target.value })} /></div>
-              <ImagePicker label="Image" value={p.image} onChange={(v) => updateItem("journalPosts", i, { image: v })} />
-              <button type="button" onClick={() => removeItem("journalPosts", i)} className="text-xs text-red-600 hover:underline">Remove</button>
-            </div>
-          ))}
-          <button type="button" onClick={() => addItem("journalPosts", { title: "", date: "", category: "", image: "", href: "" })} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">+ Add post</button>
         </section>
       )}
 

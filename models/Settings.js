@@ -1,17 +1,5 @@
 import mongoose from "mongoose";
 
-const MiniBannerSchema = new mongoose.Schema(
-  {
-    eyebrow: String,
-    title: String,
-    href: { type: String, default: "/products" },
-    image: String,
-    badgeText: String,
-    bgColor: { type: String, default: "#ede8f0" },
-  },
-  { _id: false }
-);
-
 const TrustBadgeSchema = new mongoose.Schema(
   {
     title: String,
@@ -26,17 +14,6 @@ const VisualCategorySchema = new mongoose.Schema(
     slug: String,
     title: String,
     image: String,
-  },
-  { _id: false }
-);
-
-const JournalPostSchema = new mongoose.Schema(
-  {
-    title: String,
-    date: String,
-    image: String,
-    category: String,
-    href: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -110,55 +87,6 @@ const SettingsSchema = new mongoose.Schema(
       ],
     },
 
-    // Hero layout preset — which arrangement of banners renders on the homepage.
-    heroLayout: {
-      type: String,
-      enum: ["hero-plus-3", "single", "two-up", "three-up", "four-grid"],
-      default: "hero-plus-3",
-    },
-
-    // Hero — main banner
-    heroEyebrow: { type: String, default: "Honestly made" },
-    heroTitle: { type: String, default: "Relaxed Linen Shirt — Natural" },
-    heroPriceText: { type: String, default: "Starting ৳8,900" },
-    heroCtaText: { type: String, default: "Shop Now" },
-    heroCtaHref: { type: String, default: "/products" },
-    heroImage: {
-      type: String,
-      default: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=1200&q=85",
-    },
-
-    // Hero — 3 small side cards
-    miniBanners: {
-      type: [MiniBannerSchema],
-      default: [
-        {
-          eyebrow: "Editor's pick",
-          title: "Hand-thrown Ceramic Vase",
-          href: "/products",
-          image: "https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=500&q=80",
-          badgeText: "",
-          bgColor: "#ede8f0",
-        },
-        {
-          eyebrow: "",
-          title: "Rose & Jojoba Face Oil",
-          href: "/products",
-          image: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=500&q=80",
-          badgeText: "Up to 20% off",
-          bgColor: "#f5e8e0",
-        },
-        {
-          eyebrow: "Weekend offer",
-          title: "Cork Yoga Mat",
-          href: "/products",
-          image: "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=700&q=80",
-          badgeText: "",
-          bgColor: "#dde5d8",
-        },
-      ],
-    },
-
     // Homepage section titles
     saleTitle: { type: String, default: "On sale now" },
     saleSubtitle: { type: String, default: "Limited time — while stocks last" },
@@ -205,18 +133,6 @@ const SettingsSchema = new mongoose.Schema(
     brandStoryImage: {
       type: String,
       default: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=80",
-    },
-
-    // Journal posts (3)
-    journalTitle: { type: String, default: "Stories & guides" },
-    journalEyebrow: { type: String, default: "From the Journal" },
-    journalPosts: {
-      type: [JournalPostSchema],
-      default: [
-        { title: "The case for buying less, but better", date: "May 2026", category: "Slow Living", image: "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=600&q=80", href: "" },
-        { title: "Meet the makers behind our ceramics", date: "Apr 2026", category: "Maker Stories", image: "https://images.unsplash.com/photo-1578500494198-246f612d3b3d?w=600&q=80", href: "" },
-        { title: "A guide to caring for natural fibres", date: "Mar 2026", category: "Care Guide", image: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=600&q=80", href: "" },
-      ],
     },
 
     // Testimonials

@@ -69,17 +69,11 @@ export const PUT = withAdmin(async ({ body }) => {
     brandStoryCtaHref: str(body.brandStoryCtaHref, 200),
     brandStoryImage: str(body.brandStoryImage, 500),
 
-    journalTitle: str(body.journalTitle, 120),
-    journalEyebrow: str(body.journalEyebrow, 60),
-
     footerTagline: str(body.footerTagline, 200),
     footerInstagram: str(body.footerInstagram, 200),
     footerFacebook: str(body.footerFacebook, 200),
     footerWhatsapp: str(body.footerWhatsapp, 30),
   };
-
-  // Hero & mini banners are now managed via PATCH (from the Media page),
-  // not via this PUT, so SettingsForm doesn't overwrite them by omission.
 
   const trustBadges = cleanArray(body.trustBadges, (b) => ({
     title: str(b?.title, 80),
@@ -107,15 +101,6 @@ export const PUT = withAdmin(async ({ body }) => {
   }, 12);
   if (homeCategories) update.homeCategories = homeCategories;
 
-  const journalPosts = cleanArray(body.journalPosts, (p) => ({
-    title: str(p?.title, 200),
-    date: str(p?.date, 40),
-    category: str(p?.category, 60),
-    image: str(p?.image, 500),
-    href: str(p?.href, 200),
-  }), 6);
-  if (journalPosts) update.journalPosts = journalPosts;
-
   const testimonials = cleanArray(body.testimonials, (t) => ({
     name: str(t?.name, 60),
     role: str(t?.role, 60),
@@ -133,41 +118,6 @@ export const PUT = withAdmin(async ({ body }) => {
   if (footerColumns) update.footerColumns = footerColumns;
 
   await Settings.findOneAndUpdate({ key: "store" }, update, { upsert: true, new: true });
-  bustStorefrontFromSettings();
-  return { ok: true };
-});
-
-// Partial update — only touches the hero/banner fields, leaving everything
-// else intact. Used by the Hero & Banners editor on the Media page.
-const VALID_HERO_LAYOUTS = new Set(["hero-plus-3", "single", "two-up", "three-up", "four-grid"]);
-
-export const PATCH = withAdmin(async ({ body }) => {
-  const set = {};
-  if (body.heroLayout !== undefined && VALID_HERO_LAYOUTS.has(body.heroLayout)) {
-    set.heroLayout = body.heroLayout;
-  }
-  if (body.heroEyebrow !== undefined) set.heroEyebrow = str(body.heroEyebrow, 80);
-  if (body.heroTitle !== undefined) set.heroTitle = str(body.heroTitle, 160);
-  if (body.heroPriceText !== undefined) set.heroPriceText = str(body.heroPriceText, 80);
-  if (body.heroCtaText !== undefined) set.heroCtaText = str(body.heroCtaText, 40);
-  if (body.heroCtaHref !== undefined) set.heroCtaHref = str(body.heroCtaHref, 200);
-  if (body.heroImage !== undefined) set.heroImage = str(body.heroImage, 500);
-
-  if (body.miniBanners !== undefined) {
-    const minis = cleanArray(body.miniBanners, (b) => ({
-      eyebrow: str(b?.eyebrow, 60),
-      title: str(b?.title, 120),
-      href: str(b?.href, 200),
-      image: str(b?.image, 500),
-      badgeText: str(b?.badgeText, 40),
-      bgColor: str(b?.bgColor, 20) || "#ede8f0",
-    }), 6);
-    if (minis) set.miniBanners = minis;
-  }
-
-  if (Object.keys(set).length === 0) return { ok: true };
-  await dbConnect();
-  await Settings.findOneAndUpdate({ key: "store" }, { $set: set }, { upsert: true, new: true });
   bustStorefrontFromSettings();
   return { ok: true };
 });
