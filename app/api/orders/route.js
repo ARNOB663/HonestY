@@ -198,6 +198,9 @@ export async function POST(req) {
       variantName,
       title,
       price,
+      // Snapshot the cost at placement so future cost edits don't rewrite
+      // historical profit calculations.
+      costPrice: Number(p.costPrice) || 0,
       qty: n.qty,
       image,
     });

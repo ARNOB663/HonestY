@@ -7,6 +7,9 @@ const ProductSchema = new mongoose.Schema(
     description: String,
     price: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
+    // Cost to acquire this product (e.g. landed cost from China). Used to
+    // compute profit margin on the admin dashboard. Not shown to customers.
+    costPrice: { type: Number, default: 0, min: 0 },
     image: String,
     images: [String],
     collection: { type: String, index: true },

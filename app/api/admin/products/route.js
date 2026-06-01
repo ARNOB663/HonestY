@@ -37,6 +37,8 @@ export const POST = withAdmin(async ({ body }) => {
   if (inventory === null) throw httpError("inventory must be ≥ 0");
   const compareAt = nonNegNumber(body.compareAtPrice);
   if (compareAt === null) throw httpError("compareAtPrice must be ≥ 0");
+  const costPrice = nonNegNumber(body.costPrice, 0);
+  if (costPrice === null) throw httpError("costPrice must be ≥ 0");
   const rawDesc = typeof body.description === "string" ? body.description.slice(0, MAX_DESC_LEN) : "";
 
   await dbConnect();
@@ -46,6 +48,7 @@ export const POST = withAdmin(async ({ body }) => {
     description: sanitizePageBody(rawDesc),
     price,
     compareAtPrice: compareAt,
+    costPrice: costPrice ?? 0,
     image: body.image,
     images: Array.isArray(body.images) ? body.images : [],
     collection: body.collection,

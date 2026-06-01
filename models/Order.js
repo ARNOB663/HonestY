@@ -10,6 +10,10 @@ const OrderSchema = new mongoose.Schema(
         variantName: String,
         title: String,
         price: Number,
+        // Snapshot of product.costPrice at the time the order was placed.
+        // Frozen so changing a product's cost later doesn't rewrite history.
+        // Drives the profit metric on the admin dashboard.
+        costPrice: { type: Number, default: 0 },
         qty: Number,
         image: String,
       },

@@ -66,7 +66,24 @@ async function loadStatsImpl() {
       { $limit: 5 },
     ]);
 
-    const [aggToday, agg7, agg30, aggPrev30, totalOrders, totalProducts, totalUsers, recent, unfulfilled, lowStock, topProducts, unverifiedPayments, dailyRev, byCategory, statusCounts] = await Promise.all([
+    // Profit (last 30d). For each order item, profit = (price - costPrice) * qty.
+    // costPrice is the snapshot captured at placement time; items without a
+    // recorded cost contribute zero to profit (a conservative under-estimate).
+    const profitAgg = Order.aggregate([
+      { $match: { createdAt: { $gte: since30 }, status: ALIVE } },
+      { $unwind: "$items" },
+      { $group: {
+        _id: null,
+        profit: { $sum: { $multiply: [
+          { $subtract: ["$items.price", { $ifNull: ["$items.costPrice", 0] }] },
+          "$items.qty",
+        ] } },
+        cost:   { $sum: { $multiply: [{ $ifNull: ["$items.costPrice", 0] }, "$items.qty"] } },
+        gross:  { $sum: { $multiply: ["$items.price", "$items.qty"] } },
+      } },
+    ]);
+
+    const [aggToday, agg7, agg30, aggPrev30, totalOrders, totalProducts, totalUsers, recent, unfulfilled, lowStock, topProducts, unverifiedPayments, dailyRev, byCategory, statusCounts, profitRow] = await Promise.all([
       aggBetween(startOfToday),
       aggBetween(since7),
       aggBetween(since30),
@@ -82,7 +99,12 @@ async function loadStatsImpl() {
       dailyAgg,
       categoryAgg,
       Order.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      profitAgg,
     ]);
+
+    const profit30 = profitRow[0]?.profit || 0;
+    const gross30 = profitRow[0]?.gross || 0;
+    const margin30 = gross30 > 0 ? Math.round((profit30 / gross30) * 100) : 0;
 
     // Build the window even when some days have no orders.
     const dailyMap = new Map(dailyRev.map((d) => [`${d._id.y}-${d._id.m}-${d._id.d}`, d.revenue]));
@@ -110,6 +132,8 @@ async function loadStatsImpl() {
       orderCount7: agg7[0]?.count || 0,
       revenue30: t30,
       orderCount30: c30,
+      profit30,
+      margin30,
       revenueDelta,
       orderDelta,
       totalOrders,
@@ -178,9 +202,10 @@ export default async function AdminDashboard() {
         </Link>
       )}
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KPI label="Today" value={money(s.todayRevenue)} sub={`${s.todayOrders} order${s.todayOrders !== 1 ? "s" : ""}`} accent />
         <KPI label="Revenue (30d)" value={money(s.revenue30)} sub={`vs prev 30d`} delta={s.revenueDelta} />
+        <KPI label="Profit (30d)" value={money(s.profit30)} sub={`${s.margin30}% margin`} />
         <KPI label="Orders (30d)" value={s.orderCount30} sub={`vs prev 30d`} delta={s.orderDelta} />
         <KPI label="Customers" value={s.totalUsers} sub={`${s.totalProducts} products`} />
       </section>

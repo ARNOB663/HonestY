@@ -109,17 +109,22 @@ export default async function CustomerDetail({ params }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {orders.map((o) => (
-                <tr key={String(o._id)}>
-                  <td className="px-5 py-2">
-                    <Link href={`/admin/orders/${String(o._id)}`} className="font-mono text-xs hover:underline">#{String(o._id).slice(-6)}</Link>
-                  </td>
-                  <td className="px-5 py-2 text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
-                  <td className="px-5 py-2 text-gray-500">{(o.items || []).reduce((s, i) => s + i.qty, 0)}</td>
-                  <td className="px-5 py-2"><span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_COLOR[o.status] || "bg-gray-100"}`}>{o.status}</span></td>
-                  <td className="px-5 py-2 text-right">{formatMoney(o.total)}</td>
-                </tr>
-              ))}
+              {orders.map((o) => {
+                const titles = (o.items || []).map((i) => `${i.title}${i.qty > 1 ? ` ×${i.qty}` : ""}`);
+                const titlesShort = titles.slice(0, 2).join(", ") + (titles.length > 2 ? `, +${titles.length - 2} more` : "");
+                return (
+                  <tr key={String(o._id)}>
+                    <td className="px-5 py-2 align-top">
+                      <Link href={`/admin/orders/${String(o._id)}`} className="font-mono text-xs hover:underline block">#{String(o._id).slice(-6)}</Link>
+                      <p className="text-[11px] text-gray-600 mt-0.5 max-w-[280px]" title={titles.join(", ")}>{titlesShort || "—"}</p>
+                    </td>
+                    <td className="px-5 py-2 text-gray-500 align-top whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString()}</td>
+                    <td className="px-5 py-2 text-gray-500 align-top">{(o.items || []).reduce((s, i) => s + i.qty, 0)}</td>
+                    <td className="px-5 py-2 align-top"><span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_COLOR[o.status] || "bg-gray-100"}`}>{o.status}</span></td>
+                    <td className="px-5 py-2 text-right align-top">{formatMoney(o.total)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

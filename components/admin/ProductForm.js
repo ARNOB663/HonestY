@@ -48,6 +48,7 @@ export default function ProductForm({ product }) {
     description: product?.description || "",
     price: product?.price ?? "",
     compareAtPrice: product?.compareAtPrice ?? "",
+    costPrice: product?.costPrice ?? "",
     image: product?.image || "",
     collection: product?.collection || "",
     tags: (product?.tags || []).join(", "),
@@ -87,6 +88,7 @@ export default function ProductForm({ product }) {
       ...form,
       price: Number(form.price),
       compareAtPrice: form.compareAtPrice === "" ? null : Number(form.compareAtPrice),
+      costPrice: form.costPrice === "" ? 0 : Number(form.costPrice),
       inventory: Number(form.inventory),
       images: gallery,
       tags: form.tags.split(",").map((s) => s.trim()).filter(Boolean),
@@ -170,6 +172,23 @@ export default function ProductForm({ product }) {
           <div><label className={label}>Price (৳)</label><input className={field} type="number" step="0.01" value={form.price} onChange={(e) => set("price", e.target.value)} required /></div>
           <div><label className={label}>Compare-at (৳) <span className="text-gray-400 normal-case">— for sale badge</span></label><input className={field} type="number" step="0.01" value={form.compareAtPrice} onChange={(e) => set("compareAtPrice", e.target.value)} /></div>
           <div><label className={label}>Inventory</label><input className={field} type="number" value={form.inventory} onChange={(e) => set("inventory", e.target.value)} /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={label}>Cost price (৳) <span className="text-gray-400 normal-case">— what you paid for it</span></label>
+            <input className={field} type="number" step="0.01" value={form.costPrice} onChange={(e) => set("costPrice", e.target.value)} placeholder="0" />
+            <p className="text-[11px] text-gray-500 mt-1">Landed cost (e.g. China factory + shipping). Drives the profit stat on the dashboard. Never shown to customers.</p>
+          </div>
+          {form.costPrice && form.price && Number(form.price) > 0 && (
+            <>
+              <div className="text-xs text-gray-600 self-end">
+                <p className="font-semibold uppercase tracking-wide text-[10px] text-gray-500 mb-1">Margin per unit</p>
+                <p className="text-base text-[#1a2b4a] font-bold">৳{(Number(form.price) - Number(form.costPrice)).toFixed(0)}</p>
+                <p className="text-[11px] text-gray-500">{(((Number(form.price) - Number(form.costPrice)) / Number(form.price)) * 100).toFixed(1)}% margin</p>
+              </div>
+              <div />
+            </>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
