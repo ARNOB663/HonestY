@@ -28,7 +28,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata = {
-  title: "Honesty — Honesty in every step",
+  title: "Honesty in every step",
   description: "Beautifully made things, honestly priced. A curated shop of fashion, home, beauty, wellness, and more from independent makers.",
 };
 
