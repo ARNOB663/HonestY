@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed": "node scripts/seed.js",
     "make-admin": "node scripts/makeAdmin.js",
     "check:cloudinary": "node scripts/checkCloudinary.js"
   },
