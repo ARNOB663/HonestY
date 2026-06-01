@@ -22,7 +22,9 @@ const inter = Inter({
 const cormorant = Cormorant_Garamond({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "600", "700"],
+  // Italic is loaded so the wordmark logo can use Cormorant's flowing italic 'H'.
+  style: ["normal", "italic"],
   display: "swap",
   preload: true,
 });
