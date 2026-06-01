@@ -155,7 +155,10 @@ export default function Header({ announcement, navLinks }) {
           </div>
 
           <div className="flex items-center gap-5 shrink-0 ml-auto md:ml-0">
-            <div className="hidden md:flex items-center gap-2 group">
+            {/* Reserve a min-width on the user info area so the session-load
+                swap from "Sign In / Account" to "Hi, Name / My Account / Sign
+                out" doesn't push the cart icon and cause a layout shift. */}
+            <div className="hidden md:flex items-center gap-2 group min-w-[170px]">
               <UserIcon size={20} className="text-[#1a2b4a]" />
               <div className="text-xs leading-tight">
                 {session?.user ? (
