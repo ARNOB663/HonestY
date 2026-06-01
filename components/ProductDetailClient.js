@@ -8,6 +8,33 @@ import { formatMoney } from "../lib/format";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=800&q=80";
 
+// Strip HTML tags and collapse whitespace so the right-column preview is
+// always plain text, no matter what the admin pasted into the editor.
+function plainText(html) {
+  return String(html || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function DescriptionPreview({ html }) {
+  const text = plainText(html);
+  if (!text) return null;
+  const snippet = text.length > 280 ? text.slice(0, 280).replace(/\s+\S*$/, "") + "…" : text;
+  return (
+    <div className="pt-4 border-t border-[#e8e4d8]">
+      <p className="text-[11px] uppercase tracking-[0.15em] text-gray-500 mb-2">Description</p>
+      <p className="text-sm text-gray-700 leading-relaxed">{snippet}</p>
+      {text.length > 280 && (
+        <a href="#desc" className="inline-block mt-2 text-xs font-semibold text-[#1a2b4a] hover:text-[#b8553a] underline-offset-2 hover:underline">
+          Read more →
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function ProductDetailClient({ product }) {
   const { add, openDrawer } = useCart();
   const { toast } = useToast();
@@ -241,8 +268,14 @@ export default function ProductDetailClient({ product }) {
           disabled={outOfStock}
           className="w-full border border-[#1a2b4a] text-[#1a2b4a] font-bold py-3.5 rounded text-sm tracking-wide hover:bg-[#1a2b4a] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          BUY NOW — {formatMoney(effectivePrice * qty)}
+          BUY NOW {formatMoney(effectivePrice * qty)}
         </button>
+
+        {/* Short description preview — fills the empty right column under
+            the CTAs. Full HTML description still renders in the tabs below. */}
+        {product.description && (
+          <DescriptionPreview html={product.description} />
+        )}
 
         {/* Mobile sticky CTA */}
         <div className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white border-t border-[#e8e4d8] px-4 py-3 flex items-center gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
