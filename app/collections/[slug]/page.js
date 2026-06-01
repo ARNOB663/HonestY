@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ProductCard from "../../../components/ProductCard";
-import { getProductsByCollection, getCollection } from "../../../lib/products";
+import { getProductsByCollection, getCollectionAsync } from "../../../lib/products";
 
 export const revalidate = 3600;
 
@@ -13,7 +13,7 @@ function siteUrl() {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const c = getCollection(slug);
+  const c = await getCollectionAsync(slug);
   if (!c) return { title: "Collection — Honesty" };
   const desc = (c.blurb || `Shop ${c.title} at Honesty — honestly made, honestly priced.`).slice(0, 160);
   const url = `${siteUrl()}/collections/${c.slug}`;
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }) {
 
 export default async function CollectionPage({ params }) {
   const { slug } = await params;
-  const collection = getCollection(slug);
+  const collection = await getCollectionAsync(slug);
   if (!collection) notFound();
   const products = await getProductsByCollection(slug);
 

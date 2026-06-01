@@ -1,12 +1,47 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collections as CATEGORIES } from "../../data/products";
+import { collections as FALLBACK_CATEGORIES } from "../../data/products";
 import MediaPickerModal from "./MediaPickerModal";
 import RichText from "./RichText";
 
 export default function ProductForm({ product }) {
   const router = useRouter();
+  // Categories live in Mongo (admin-editable). Start from the hardcoded list
+  // so the dropdown renders immediately, then swap in the live list on mount.
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCat, setNewCat] = useState({ title: "", slug: "" });
+  const [catMsg, setCatMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/categories")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.categories) return;
+        setCategories(data.categories);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  async function createCategory(e) {
+    e?.preventDefault?.();
+    if (!newCat.title.trim()) { setCatMsg("Title required"); return; }
+    setCatMsg("");
+    const r = await fetch("/api/admin/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newCat.title, slug: newCat.slug || newCat.title }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { setCatMsg(data.error || "Failed to add"); return; }
+    setCategories((arr) => [...arr, data.category]);
+    setForm((f) => ({ ...f, collection: data.category.slug }));
+    setNewCat({ title: "", slug: "" });
+    setAddingCategory(false);
+  }
   const [form, setForm] = useState({
     slug: product?.slug || "",
     title: product?.title || "",
@@ -145,11 +180,49 @@ export default function ProductForm({ product }) {
               onChange={(e) => set("collection", e.target.value)}
             >
               <option value="">— Uncategorised —</option>
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c.slug} value={c.slug}>{c.title}</option>
               ))}
             </select>
             <p className="text-[11px] text-gray-500 mt-1">Pick a category. This drives the &ldquo;Shop by Category&rdquo; tabs and the /collections pages.</p>
+            {!addingCategory ? (
+              <button
+                type="button"
+                onClick={() => setAddingCategory(true)}
+                className="text-xs text-[#1a2b4a] mt-2 hover:underline font-medium"
+              >
+                + Add new category
+              </button>
+            ) : (
+              <div className="mt-2 border border-gray-200 rounded p-3 bg-gray-50 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Title</label>
+                    <input
+                      className={field}
+                      value={newCat.title}
+                      onChange={(e) => setNewCat((c) => ({ ...c, title: e.target.value }))}
+                      placeholder="Stationery"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Slug (optional)</label>
+                    <input
+                      className={field}
+                      value={newCat.slug}
+                      onChange={(e) => setNewCat((c) => ({ ...c, slug: e.target.value }))}
+                      placeholder="auto from title"
+                    />
+                  </div>
+                </div>
+                {catMsg && <p className="text-xs text-red-600">{catMsg}</p>}
+                <div className="flex gap-2">
+                  <button type="button" onClick={createCategory} className="bg-[#1a2b4a] text-white text-xs px-3 py-1.5 rounded">Add category</button>
+                  <button type="button" onClick={() => { setAddingCategory(false); setCatMsg(""); setNewCat({ title: "", slug: "" }); }} className="text-xs text-gray-600 hover:underline">Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className={label}>Tags (comma-separated)</label>
