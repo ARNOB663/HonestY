@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
-import { dbConnect } from "../../../lib/mongodb";
+import { prisma } from "../../../lib/db";
 import { checkOrigin } from "../../../lib/origin";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
-import User from "../../../models/User";
 
 function cleanSlugs(input) {
   if (!Array.isArray(input)) return [];
@@ -24,12 +23,13 @@ function cleanSlugs(input) {
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ slugs: [] });
-  await dbConnect();
-  const user = await User.findOne({ email: session.user.email.toLowerCase() }).select("wishlist").lean();
-  return NextResponse.json({ slugs: user?.wishlist || [] });
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email.toLowerCase() },
+    select: { wishlist: true },
+  });
+  return NextResponse.json({ slugs: Array.isArray(user?.wishlist) ? user.wishlist : [] });
 }
 
-// PUT replaces the entire list (used for sync). Body: { slugs: [...] }.
 export async function PUT(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
   const session = await getServerSession(authOptions);
@@ -47,11 +47,10 @@ export async function PUT(req) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const slugs = cleanSlugs(body.slugs);
-  await dbConnect();
-  const updated = await User.findOneAndUpdate(
-    { email: session.user.email.toLowerCase() },
-    { $set: { wishlist: slugs } },
-    { new: true }
-  ).select("wishlist").lean();
-  return NextResponse.json({ slugs: updated?.wishlist || [] });
+  const updated = await prisma.user.update({
+    where: { email: session.user.email.toLowerCase() },
+    data: { wishlist: slugs },
+    select: { wishlist: true },
+  });
+  return NextResponse.json({ slugs: Array.isArray(updated?.wishlist) ? updated.wishlist : [] });
 }

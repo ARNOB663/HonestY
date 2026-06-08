@@ -144,30 +144,67 @@ export default function CheckoutPage() {
   }
 
   if (done) {
+    const firstName = (session?.user?.name || session?.user?.email || form.name || form.email || "")
+      .split(" ")[0].split("@")[0];
+    const trackHref = orderId && form.email
+      ? `/track?id=${orderId}&email=${encodeURIComponent(form.email)}`
+      : null;
     return (
-      <div className="bg-white min-h-[60vh] flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-[#f0fdf4] rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+      <div className="bg-[#fafaf7] min-h-[80vh] py-12 px-4">
+        <div className="max-w-2xl mx-auto">
+          {/* Hero */}
+          <div className="bg-white border border-[#e8e4d8] rounded-lg p-8 text-center shadow-sm">
+            <div className="w-20 h-20 bg-[#f0fdf4] rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p className="text-[#c9a961] text-xs font-semibold tracking-[0.25em] uppercase mb-2">Order received</p>
+            <h1 className="font-serif text-3xl text-[#1a2b4a]">Thank you{firstName ? `, ${firstName}` : ""}.</h1>
+            {orderId && (
+              <p className="mt-3 inline-block font-mono text-sm bg-gray-100 text-[#1a2b4a] px-3 py-1 rounded">
+                Order #{orderId}
+              </p>
+            )}
+            <p className="mt-4 text-sm text-gray-600">
+              {form.email
+                ? <>A confirmation email is on its way to <strong>{form.email}</strong>.</>
+                : "We'll contact you on your mobile number to confirm."}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-[#1a2b4a]">Order Placed!</h1>
-          <p className="mt-2 text-gray-500 text-sm">
-            Thanks, {session?.user?.name || session?.user?.email || form.name || form.email}. We&apos;ll contact you shortly to confirm.
-          </p>
-          {orderId && <p className="mt-1 text-xs text-gray-400">Order #{orderId.slice(-6)}</p>}
-          <p className="mt-3 text-xs text-gray-500">
-            {form.email
-              ? `A confirmation email is on its way to ${form.email}.`
-              : "We'll contact you on your mobile number to confirm."}
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-6">
-            {session?.user ? (
+
+          {/* Timeline */}
+          <div className="bg-white border border-[#e8e4d8] rounded-lg p-6 mt-5">
+            <h2 className="font-semibold text-sm mb-4 text-[#1a2b4a]">What happens next</h2>
+            <ol className="space-y-4">
+              {[
+                { t: "We confirm your order", s: payMethod === "cod" ? "Within a few hours by phone or email." : "Once we verify your bKash / Nagad TrxID." },
+                { t: "We pack and dispatch", s: "Carefully wrapped, handed to our courier." },
+                { t: "You receive it", s: "Dhaka: same / next day. Outside: 2–3 days." },
+              ].map((step, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="w-7 h-7 shrink-0 rounded-full bg-[#1a2b4a] text-white flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                  <div>
+                    <p className="text-sm font-medium text-[#1a2b4a]">{step.t}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{step.s}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            {trackHref && (
+              <Link href={trackHref} className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-6 py-2.5 rounded text-sm hover:bg-[#1a2b4a] hover:text-white transition-colors">
+                TRACK ORDER
+              </Link>
+            )}
+            {session?.user && (
               <Link href="/account" className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-6 py-2.5 rounded text-sm hover:bg-[#1a2b4a] hover:text-white transition-colors">
                 MY ORDERS
               </Link>
-            ) : null}
+            )}
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/products")}
               className="bg-[#1a2b4a] text-white font-bold px-6 py-2.5 rounded text-sm tracking-wide hover:bg-[#0e1a30] transition-colors"
             >
               KEEP SHOPPING

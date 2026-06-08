@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import Page from "../../../models/Page";
+import { prisma } from "../../../lib/db";
 
 export const dynamic = "force-dynamic";
 
 const cachedPages = unstable_cache(
-  async () => {
-    await dbConnect();
-    return Page.find({}).sort({ updatedAt: -1 }).lean();
-  },
+  async () => prisma.page.findMany({ orderBy: { updatedAt: "desc" } }),
   ["admin-pages-list-v1"],
   { revalidate: 60, tags: ["admin-pages"] }
 );
@@ -30,7 +26,7 @@ export default async function AdminPages() {
           <tbody className="divide-y divide-gray-100">
             {pages.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-500">No pages yet.</td></tr>}
             {pages.map((p) => (
-              <tr key={String(p._id)}>
+              <tr key={p.id}>
                 <td className="px-4 py-2">{p.title}</td>
                 <td className="px-4 py-2 text-gray-500">/p/{p.slug}</td>
                 <td className="px-4 py-2">{p.published ? <span className="text-green-700 text-xs">yes</span> : <span className="text-gray-500 text-xs">draft</span>}</td>

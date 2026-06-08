@@ -1,6 +1,5 @@
 import { requireAdminApi } from "../../../../../lib/adminAuth";
-import { dbConnect } from "../../../../../lib/mongodb";
-import Subscriber from "../../../../../models/Subscriber";
+import { prisma } from "../../../../../lib/db";
 
 function csvCell(v) {
   if (v === null || v === undefined) return "";
@@ -13,8 +12,7 @@ export async function GET(req) {
   const auth = await requireAdminApi(req);
   if (auth.error) return auth.error;
 
-  await dbConnect();
-  const subs = await Subscriber.find({}).sort({ createdAt: -1 }).lean();
+  const subs = await prisma.subscriber.findMany({ orderBy: { createdAt: "desc" } });
   const rows = ["email,source,subscribedAt"];
   for (const s of subs) {
     rows.push([s.email, s.source, s.createdAt?.toISOString?.() || ""].map(csvCell).join(","));

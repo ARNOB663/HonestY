@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
-import { dbConnect } from "../../../lib/mongodb";
+import { prisma } from "../../../lib/db";
 import { checkOrigin } from "../../../lib/origin";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
-import User from "../../../models/User";
 
 function cleanItems(input) {
   if (!Array.isArray(input)) return [];
@@ -29,9 +28,11 @@ function cleanItems(input) {
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ items: [] });
-  await dbConnect();
-  const user = await User.findOne({ email: session.user.email.toLowerCase() }).select("cart").lean();
-  return NextResponse.json({ items: user?.cart || [] });
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email.toLowerCase() },
+    select: { cart: true },
+  });
+  return NextResponse.json({ items: Array.isArray(user?.cart) ? user.cart : [] });
 }
 
 export async function PUT(req) {
@@ -48,7 +49,9 @@ export async function PUT(req) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const items = cleanItems(body.items);
-  await dbConnect();
-  await User.updateOne({ email: session.user.email.toLowerCase() }, { $set: { cart: items } });
+  await prisma.user.update({
+    where: { email: session.user.email.toLowerCase() },
+    data: { cart: items },
+  });
   return NextResponse.json({ ok: true });
 }

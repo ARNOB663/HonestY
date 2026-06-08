@@ -26,8 +26,7 @@ Brand assets (logos, social cards, photography) go in **[`/public/brand/`](../pu
 
 - `/app/` — Next.js App Router pages
 - `/components/` — React components (UI)
-- `/lib/` — server-side helpers (DB connection, products fetcher)
-- `/models/` — Mongoose schemas
-- `/data/` — seed data
-- `/scripts/` — one-off scripts (seed, test-db)
+- `/lib/` — server-side helpers (Prisma client, products fetcher, auth)
+- `/prisma/schema.prisma` — Prisma schema (source of truth for the MySQL DB)
+- `/scripts/` — one-off CLI tools (admin promotion, smoke test, etc.)
 - `/context/` — React contexts (CartContext)

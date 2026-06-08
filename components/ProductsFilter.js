@@ -4,10 +4,19 @@ import ProductCard from "./ProductCard";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
+  { value: "newest", label: "Newest first" },
   { value: "price-asc", label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
   { value: "name", label: "Name: A–Z" },
 ];
+
+// Total purchasable stock = master inventory + sum of variant inventory.
+function totalStock(p) {
+  if (Array.isArray(p.variants) && p.variants.length) {
+    return p.variants.reduce((s, v) => s + (Number(v.inventory) || 0), 0);
+  }
+  return Number(p.inventory) || 0;
+}
 
 const PRICE_RANGES = [
   { label: "Under ৳500", min: 0, max: 500 },
@@ -21,6 +30,7 @@ export default function ProductsFilter({ products, collections }) {
   const [selectedCats, setSelectedCats] = useState([]);
   const [selectedRanges, setSelectedRanges] = useState([]);
   const [onSaleOnly, setOnSaleOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [sort, setSort] = useState("featured");
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -40,12 +50,16 @@ export default function ProductsFilter({ products, collections }) {
     if (onSaleOnly) {
       out = out.filter((p) => p.compareAtPrice);
     }
+    if (inStockOnly) {
+      out = out.filter((p) => totalStock(p) > 0);
+    }
     if (sort === "price-asc") out.sort((a, b) => a.price - b.price);
     else if (sort === "price-desc") out.sort((a, b) => b.price - a.price);
     else if (sort === "name") out.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sort === "newest") out.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     else out.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
     return out;
-  }, [products, selectedCats, selectedRanges, onSaleOnly, sort]);
+  }, [products, selectedCats, selectedRanges, onSaleOnly, inStockOnly, sort]);
 
   const toggleCat = (slug) =>
     setSelectedCats((prev) => (prev.includes(slug) ? prev.filter((c) => c !== slug) : [...prev, slug]));
@@ -55,6 +69,7 @@ export default function ProductsFilter({ products, collections }) {
     setSelectedCats([]);
     setSelectedRanges([]);
     setOnSaleOnly(false);
+    setInStockOnly(false);
   };
 
   const Sidebar = (
@@ -106,7 +121,7 @@ export default function ProductsFilter({ products, collections }) {
         </ul>
       </div>
 
-      <div>
+      <div className="space-y-2.5">
         <label className="flex items-center gap-2.5 cursor-pointer group">
           <input
             type="checkbox"
@@ -115,6 +130,15 @@ export default function ProductsFilter({ products, collections }) {
             className="w-4 h-4 accent-[#1a2b4a]"
           />
           <span className="font-medium text-[#1a2b4a]">On Sale only</span>
+        </label>
+        <label className="flex items-center gap-2.5 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={inStockOnly}
+            onChange={(e) => setInStockOnly(e.target.checked)}
+            className="w-4 h-4 accent-[#1a2b4a]"
+          />
+          <span className="font-medium text-[#1a2b4a]">In stock only</span>
         </label>
       </div>
     </aside>

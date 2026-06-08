@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
-import { dbConnect } from "../../../../lib/mongodb";
-import Order from "../../../../models/Order";
+import { prisma } from "../../../../lib/db";
 
 const PAGE_SIZE = 10;
 
@@ -14,29 +13,29 @@ export async function GET(req) {
   const url = new URL(req.url);
   const page = Math.max(0, Math.floor(Number(url.searchParams.get("page")) || 0));
 
-  await dbConnect();
   const email = session.user.email.toLowerCase();
   const [orders, total] = await Promise.all([
-    Order.find({ userEmail: email })
-      .sort({ createdAt: -1 })
-      .skip(page * PAGE_SIZE)
-      .limit(PAGE_SIZE)
-      .select("items subtotal shipping discountAmount total status payment.method payment.verified createdAt")
-      .lean(),
-    Order.countDocuments({ userEmail: email }),
+    prisma.order.findMany({
+      where: { userEmail: email },
+      orderBy: { createdAt: "desc" },
+      skip: page * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { items: true },
+    }),
+    prisma.order.count({ where: { userEmail: email } }),
   ]);
 
   return NextResponse.json({
     orders: orders.map((o) => ({
-      id: String(o._id),
+      id: o.code || String(o.id),
       items: o.items || [],
       subtotal: o.subtotal,
       shipping: o.shipping,
       discountAmount: o.discountAmount,
       total: o.total,
       status: o.status,
-      paymentMethod: o.payment?.method,
-      paymentVerified: !!o.payment?.verified,
+      paymentMethod: o.paymentMethod,
+      paymentVerified: !!o.paymentVerified,
       createdAt: o.createdAt,
     })),
     page,

@@ -1,10 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { withAdmin } from "../../../../lib/withAdmin";
-import { dbConnect } from "../../../../lib/mongodb";
-import Settings from "../../../../models/Settings";
+import { prisma } from "../../../../lib/db";
 
-// Bust the storefront pages that read store settings so admin edits show
-// without waiting for the 1-hour revalidate window to expire.
 function bustStorefrontFromSettings() {
   try {
     revalidatePath("/");
@@ -31,9 +28,7 @@ function cleanArray(arr, mapFn, max = 20) {
 const VALID_ICONS = new Set(["shipping", "returns", "secure", "support", "leaf", "phone", "shield", "star"]);
 
 export const PUT = withAdmin(async ({ body }) => {
-  await dbConnect();
   const update = {
-    key: "store",
     storeName: str(body.storeName, 100),
     supportEmail: str(body.supportEmail, 200),
     supportPhone: str(body.supportPhone, 50),
@@ -82,7 +77,6 @@ export const PUT = withAdmin(async ({ body }) => {
   }), 6);
   if (trustBadges) update.trustBadges = trustBadges;
 
-  // Header navigation. Drop blank rows (no label or href). Cap at 12.
   const navLinks = cleanArray(body.navLinks, (n) => {
     const label = str(n?.label, 60);
     const href = str(n?.href, 200);
@@ -117,7 +111,11 @@ export const PUT = withAdmin(async ({ body }) => {
   }), 4);
   if (footerColumns) update.footerColumns = footerColumns;
 
-  await Settings.findOneAndUpdate({ key: "store" }, update, { upsert: true, new: true });
+  await prisma.settings.upsert({
+    where: { storeKey: "store" },
+    create: { storeKey: "store", ...update },
+    update,
+  });
   bustStorefrontFromSettings();
   return { ok: true };
 });

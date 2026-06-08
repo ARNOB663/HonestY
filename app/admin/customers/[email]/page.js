@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { dbConnect } from "../../../../lib/mongodb";
-import User from "../../../../models/User";
-import Order from "../../../../models/Order";
+import { prisma } from "../../../../lib/db";
 import { formatMoney } from "../../../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,23 +19,43 @@ const STATUS_COLOR = {
 export default async function CustomerDetail({ params }) {
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
-  await dbConnect();
 
   const [user, orders, totals] = await Promise.all([
-    User.findOne({ email }).select("email name phone backupPhone defaultAddress createdAt role").lean(),
-    Order.find({ userEmail: email }).sort({ createdAt: -1 }).limit(100).lean(),
-    Order.aggregate([
-      { $match: { userEmail: email, status: { $ne: "cancelled" } } },
-      { $group: { _id: null, count: { $sum: 1 }, total: { $sum: "$total" }, avg: { $avg: "$total" } } },
-    ]),
+    prisma.user.findUnique({
+      where: { email },
+      select: {
+        email: true, name: true, phone: true, backupPhone: true, role: true, createdAt: true,
+        addrLine1: true, addrArea: true, addrCity: true, addrState: true, addrCountry: true,
+      },
+    }),
+    prisma.order.findMany({
+      where: { userEmail: email },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: { items: true },
+    }),
+    prisma.order.aggregate({
+      where: { userEmail: email, NOT: { status: "cancelled" } },
+      _count: { _all: true },
+      _sum: { total: true },
+      _avg: { total: true },
+    }),
   ]);
 
   if (!user && orders.length === 0) notFound();
 
-  const stats = totals[0] || { count: 0, total: 0, avg: 0 };
-  const addr = user?.defaultAddress || orders[0]?.shippingAddress || null;
+  const stats = {
+    count: totals._count._all || 0,
+    total: totals._sum.total || 0,
+    avg: totals._avg.total || 0,
+  };
   const firstOrder = orders.length > 0 ? orders[orders.length - 1].createdAt : null;
   const lastOrder = orders.length > 0 ? orders[0].createdAt : null;
+  const addr = user
+    ? { line1: user.addrLine1, area: user.addrArea, city: user.addrCity, state: user.addrState, country: user.addrCountry, name: user.name }
+    : orders[0]
+      ? { line1: orders[0].shipLine1, city: orders[0].shipCity, state: orders[0].shipState, country: orders[0].shipCountry, name: orders[0].shipName, phone: orders[0].shipPhone }
+      : null;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -81,7 +99,7 @@ export default async function CustomerDetail({ params }) {
             <div className="text-sm leading-relaxed text-gray-700">
               <p>{addr.name || user?.name || ""}</p>
               <p>{[addr.line1, addr.area].filter(Boolean).join(", ")}</p>
-              <p>{addr.city}, {addr.state} {addr.zip}</p>
+              <p>{addr.city}, {addr.state}</p>
               <p>{addr.country}</p>
               {addr.phone && <p className="mt-1 text-gray-500">{addr.phone}</p>}
             </div>
@@ -112,10 +130,11 @@ export default async function CustomerDetail({ params }) {
               {orders.map((o) => {
                 const titles = (o.items || []).map((i) => `${i.title}${i.qty > 1 ? ` ×${i.qty}` : ""}`);
                 const titlesShort = titles.slice(0, 2).join(", ") + (titles.length > 2 ? `, +${titles.length - 2} more` : "");
+                const idStr = o.code || String(o.id);
                 return (
-                  <tr key={String(o._id)}>
+                  <tr key={o.id}>
                     <td className="px-5 py-2 align-top">
-                      <Link href={`/admin/orders/${String(o._id)}`} className="font-mono text-xs hover:underline block">#{String(o._id).slice(-6)}</Link>
+                      <Link href={`/admin/orders/${idStr}`} className="font-mono text-xs hover:underline block">#{idStr}</Link>
                       <p className="text-[11px] text-gray-600 mt-0.5 max-w-[280px]" title={titles.join(", ")}>{titlesShort || "—"}</p>
                     </td>
                     <td className="px-5 py-2 text-gray-500 align-top whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString()}</td>

@@ -1,19 +1,17 @@
 import Link from "next/link";
-import mongoose from "mongoose";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import Order from "../../../models/Order";
+import { prisma } from "../../../lib/db";
 import { formatMoney } from "../../../lib/format";
 import OrderRowActions from "../../../components/admin/OrderRowActions";
 
 export const dynamic = "force-dynamic";
 
-// Cache the most recent 500 orders cluster-wide; filtering happens in memory
-// against this snapshot. Mutating order routes call revalidateTag("admin-orders").
 const cachedRecentOrders = unstable_cache(
   async () => {
-    await dbConnect();
-    return Order.find({}).sort({ createdAt: -1 }).limit(500).lean();
+    return prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
   },
   ["admin-orders-recent-v1"],
   { revalidate: 60, tags: ["admin-orders"] }
@@ -30,51 +28,37 @@ const STATUS_COLOR = {
   cancelled: "bg-red-50 text-red-700",
 };
 
-function safeRegex(s) {
-  return new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-}
-
 export default async function AdminOrders({ searchParams }) {
   const sp = (await searchParams) || {};
 
-  // For filtered queries that need full-table coverage we still hit Mongo.
-  // For the common case (no filter or just status/q within recent 500) we
-  // serve from the cached snapshot.
   const hasOldDate = !!sp.from && (Date.now() - new Date(sp.from).getTime()) > 1000 * 60 * 60 * 24 * 30;
 
   let orders;
   if (hasOldDate) {
-    await dbConnect();
-    const filter = {};
-    if (sp.status) filter.status = sp.status;
+    const where = {};
+    if (sp.status) where.status = sp.status;
     if (sp.q) {
       const q = String(sp.q).trim();
-      const re = safeRegex(q);
-      const orClauses = [
-        { userEmail: re },
-        { "shippingAddress.name": re },
-        { "shippingAddress.phone": re },
-        { "payment.txnId": safeRegex(q.toUpperCase()) },
+      const qLower = q.toLowerCase();
+      const qUpper = q.toUpperCase();
+      where.OR = [
+        { userEmail: { contains: qLower } },
+        { shipName: { contains: qLower } },
+        { shipPhone: { contains: qLower } },
+        { paymentTxnId: { contains: qUpper } },
+        { code: { contains: qUpper } },
       ];
-      if (mongoose.isValidObjectId(q)) {
-        orClauses.push({ _id: new mongoose.Types.ObjectId(q) });
-      } else if (/^[a-f0-9]{6,23}$/i.test(q)) {
-        orClauses.push({
-          $expr: { $regexMatch: { input: { $toString: "$_id" }, regex: q.toLowerCase() + "$", options: "i" } },
-        });
-      }
-      filter.$or = orClauses;
     }
     if (sp.from || sp.to) {
-      filter.createdAt = {};
-      if (sp.from) filter.createdAt.$gte = new Date(sp.from);
+      where.createdAt = {};
+      if (sp.from) where.createdAt.gte = new Date(sp.from);
       if (sp.to) {
         const d = new Date(sp.to);
         d.setDate(d.getDate() + 1);
-        filter.createdAt.$lt = d;
+        where.createdAt.lt = d;
       }
     }
-    orders = await Order.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+    orders = await prisma.order.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 });
   } else {
     const all = await cachedRecentOrders();
     const q = sp.q ? String(sp.q).trim().toLowerCase() : "";
@@ -88,10 +72,11 @@ export default async function AdminOrders({ searchParams }) {
         if (q) {
           const haystack = [
             o.userEmail || "",
-            o.shippingAddress?.name || "",
-            o.shippingAddress?.phone || "",
-            o.payment?.txnId || "",
-            String(o._id),
+            o.shipName || "",
+            o.shipPhone || "",
+            o.paymentTxnId || "",
+            o.code || "",
+            String(o.id),
           ].join(" ").toLowerCase();
           if (!haystack.includes(q)) return false;
         }
@@ -177,27 +162,30 @@ export default async function AdminOrders({ searchParams }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {orders.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500">No orders match.</td></tr>}
-            {orders.map((o) => (
-              <tr key={String(o._id)}>
-                <td className="px-4 py-2"><Link href={`/admin/orders/${String(o._id)}`} className="font-mono text-xs hover:underline">#{String(o._id).slice(-6)}</Link></td>
-                <td className="px-4 py-2">
-                  <p>{o.userEmail}</p>
-                  {o.shippingAddress?.phone && <p className="text-[10px] text-gray-500">{o.shippingAddress.phone}</p>}
-                </td>
-                <td className="px-4 py-2 text-xs">
-                  <span className="uppercase font-medium">{o.payment?.method || "—"}</span>
-                  {o.payment?.method && o.payment.method !== "cod" && (
-                    <span className={`ml-1 inline-block px-1.5 py-0.5 rounded text-[10px] ${o.payment?.verified ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
-                      {o.payment?.verified ? "verified" : "unverified"}
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-2 text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
-                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_COLOR[o.status] || "bg-gray-100"}`}>{o.status}</span></td>
-                <td className="px-4 py-2 text-right">{formatMoney(o.total)}</td>
-                <td className="px-4 py-2 text-right"><OrderRowActions id={String(o._id)} status={o.status} paymentMethod={o.payment?.method} /></td>
-              </tr>
-            ))}
+            {orders.map((o) => {
+              const idStr = o.code || String(o.id);
+              return (
+                <tr key={o.id}>
+                  <td className="px-4 py-2"><Link href={`/admin/orders/${idStr}`} className="font-mono text-xs hover:underline">#{idStr}</Link></td>
+                  <td className="px-4 py-2">
+                    <p>{o.userEmail}</p>
+                    {o.shipPhone && <p className="text-[10px] text-gray-500">{o.shipPhone}</p>}
+                  </td>
+                  <td className="px-4 py-2 text-xs">
+                    <span className="uppercase font-medium">{o.paymentMethod || "—"}</span>
+                    {o.paymentMethod && o.paymentMethod !== "cod" && (
+                      <span className={`ml-1 inline-block px-1.5 py-0.5 rounded text-[10px] ${o.paymentVerified ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+                        {o.paymentVerified ? "verified" : "unverified"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_COLOR[o.status] || "bg-gray-100"}`}>{o.status}</span></td>
+                  <td className="px-4 py-2 text-right">{formatMoney(o.total)}</td>
+                  <td className="px-4 py-2 text-right"><OrderRowActions id={idStr} status={o.status} paymentMethod={o.paymentMethod} /></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

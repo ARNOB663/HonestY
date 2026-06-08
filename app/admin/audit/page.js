@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import AuditLog from "../../../models/AuditLog";
+import { prisma } from "../../../lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Audit reads are rare but logs are written on every admin action; cache the
-// recent slice for 30s. No tag — staleness is fine for ops review.
 const cachedRecentAudit = unstable_cache(
-  async () => {
-    await dbConnect();
-    return AuditLog.find({}).sort({ createdAt: -1 }).limit(500).lean();
-  },
+  async () => prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 500 }),
   ["admin-audit-recent-v1"],
   { revalidate: 30 }
 );
@@ -23,42 +17,35 @@ const METHOD_COLOR = {
   DELETE: "bg-red-50 text-red-700",
 };
 
-function safeRegex(s) {
-  return new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-}
-
 export default async function AdminAudit({ searchParams }) {
   const sp = (await searchParams) || {};
 
-  // Filter the cached snapshot in-memory. Falls back to a fresh query when the
-  // date range goes deeper than the cache holds (≈ last 500 entries).
   const hasOldDate = !!sp.from && (Date.now() - new Date(sp.from).getTime()) > 1000 * 60 * 60 * 24 * 7;
 
   let logs;
   if (hasOldDate) {
-    await dbConnect();
-    const filter = {};
-    if (sp.actor) filter.actorEmail = safeRegex(sp.actor);
-    if (sp.path) filter.path = safeRegex(sp.path);
-    if (sp.method) filter.method = sp.method;
-    filter.createdAt = {};
-    if (sp.from) filter.createdAt.$gte = new Date(sp.from);
+    const where = {};
+    if (sp.actor) where.actorEmail = { contains: sp.actor };
+    if (sp.path) where.path = { contains: sp.path };
+    if (sp.method) where.method = sp.method;
+    where.createdAt = {};
+    if (sp.from) where.createdAt.gte = new Date(sp.from);
     if (sp.to) {
       const d = new Date(sp.to);
       d.setDate(d.getDate() + 1);
-      filter.createdAt.$lt = d;
+      where.createdAt.lt = d;
     }
-    logs = await AuditLog.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+    logs = await prisma.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 });
   } else {
     const all = await cachedRecentAudit();
-    const actorRe = sp.actor ? safeRegex(sp.actor) : null;
-    const pathRe = sp.path ? safeRegex(sp.path) : null;
+    const actor = sp.actor ? String(sp.actor).toLowerCase() : "";
+    const path = sp.path ? String(sp.path).toLowerCase() : "";
     const fromTs = sp.from ? new Date(sp.from).getTime() : null;
     const toTs = sp.to ? new Date(sp.to).getTime() + 1000 * 60 * 60 * 24 : null;
     logs = all
       .filter((l) => {
-        if (actorRe && !actorRe.test(l.actorEmail || "")) return false;
-        if (pathRe && !pathRe.test(l.path || "")) return false;
+        if (actor && !(l.actorEmail || "").toLowerCase().includes(actor)) return false;
+        if (path && !(l.path || "").toLowerCase().includes(path)) return false;
         if (sp.method && l.method !== sp.method) return false;
         const t = new Date(l.createdAt).getTime();
         if (fromTs && t < fromTs) return false;
@@ -109,7 +96,7 @@ export default async function AdminAudit({ searchParams }) {
           <tbody className="divide-y divide-gray-100">
             {logs.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">No log entries match.</td></tr>}
             {logs.map((l) => (
-              <tr key={String(l._id)} className="align-top">
+              <tr key={l.id} className="align-top">
                 <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{new Date(l.createdAt).toLocaleString()}</td>
                 <td className="px-4 py-2">{l.actorEmail || "—"}</td>
                 <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded text-xs font-mono ${METHOD_COLOR[l.method] || "bg-gray-100"}`}>{l.method}</span></td>

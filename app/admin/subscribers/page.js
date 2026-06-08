@@ -1,15 +1,16 @@
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import Subscriber from "../../../models/Subscriber";
+import { prisma } from "../../../lib/db";
 
 export const dynamic = "force-dynamic";
 
 const cachedSubscribers = unstable_cache(
   async () => {
-    await dbConnect();
-    const subs = await Subscriber.find({}).sort({ createdAt: -1 }).limit(1000).lean();
+    const subs = await prisma.subscriber.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    });
     return subs.map((s) => ({
-      _id: String(s._id),
+      _id: String(s.id),
       email: s.email,
       source: s.source,
       createdAt: s.createdAt,

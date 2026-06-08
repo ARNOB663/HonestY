@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../lib/mongodb";
-import Order from "../../models/Order";
-import Product from "../../models/Product";
-import User from "../../models/User";
+import { prisma } from "../../lib/db";
 import { formatMoney } from "../../lib/format";
 import { BarChart, Donut } from "../../components/admin/Charts";
 
-// Cache dashboard stats for 60s. Tagged so order/product mutations can bust
-// the cache via revalidateTag("admin-dashboard") for instant updates.
 const cachedStats = unstable_cache(
   () => loadStatsImpl(),
   ["admin-dashboard-v1"],
@@ -21,7 +16,6 @@ async function loadStats() {
 
 async function loadStatsImpl() {
   try {
-    await dbConnect();
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
@@ -29,85 +23,116 @@ async function loadStatsImpl() {
     const prev30Start = new Date(now.getTime() - 60 * 24 * 3600 * 1000);
     const since7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
 
-    const ALIVE = { $nin: ["cancelled"] };
+    // Helper: sum + count for a date window, excluding cancelled.
+    async function aggBetween(from, to) {
+      const where = {
+        createdAt: { gte: from, ...(to ? { lt: to } : {}) },
+        NOT: { status: "cancelled" },
+      };
+      const agg = await prisma.order.aggregate({
+        where,
+        _sum: { total: true },
+        _count: { _all: true },
+      });
+      return { total: agg._sum.total || 0, count: agg._count._all || 0 };
+    }
 
-    const aggBetween = (from, to) =>
-      Order.aggregate([
-        { $match: { createdAt: { $gte: from, ...(to ? { $lt: to } : {}) }, status: ALIVE } },
-        { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-      ]);
-
-    // Revenue by day for the last 14 days (for the bar chart).
+    // Revenue by day for the last 14 days. Raw MySQL for date grouping.
     const DAILY_DAYS = 14;
-    const dailyAgg = Order.aggregate([
-      { $match: { createdAt: { $gte: new Date(now.getTime() - DAILY_DAYS * 24 * 3600 * 1000) }, status: ALIVE } },
-      { $group: {
-        _id: { y: { $year: "$createdAt" }, m: { $month: "$createdAt" }, d: { $dayOfMonth: "$createdAt" } },
-        revenue: { $sum: "$total" },
-      } },
-      { $sort: { "_id.y": 1, "_id.m": 1, "_id.d": 1 } },
-    ]);
+    const dailyStart = new Date(now.getTime() - DAILY_DAYS * 24 * 3600 * 1000);
+    const dailyRev = await prisma.$queryRaw`
+      SELECT DATE(createdAt) AS day, SUM(total) AS revenue
+      FROM \`Order\`
+      WHERE createdAt >= ${dailyStart} AND status != 'cancelled'
+      GROUP BY DATE(createdAt)
+      ORDER BY day ASC
+    `;
 
-    // Sales by category — joins items.slug to products.collection
-    const categoryAgg = Order.aggregate([
-      { $match: { createdAt: { $gte: since30 }, status: ALIVE } },
-      { $unwind: "$items" },
-      { $lookup: { from: "products", localField: "items.slug", foreignField: "slug", as: "p" } },
-      { $unwind: { path: "$p", preserveNullAndEmptyArrays: true } },
-      { $group: { _id: { $ifNull: ["$p.collection", "uncategorized"] }, revenue: { $sum: { $multiply: ["$items.price", "$items.qty"] } } } },
-      { $sort: { revenue: -1 } },
-    ]);
+    // Sales by category (last 30d) — join OrderItem → Product.
+    const byCategoryRows = await prisma.$queryRaw`
+      SELECT COALESCE(p.collection, 'uncategorized') AS label,
+             SUM(oi.price * oi.qty) AS revenue
+      FROM OrderItem oi
+      JOIN \`Order\` o ON o.id = oi.orderId
+      LEFT JOIN Product p ON p.slug = oi.slug
+      WHERE o.createdAt >= ${since30} AND o.status != 'cancelled'
+      GROUP BY label
+      ORDER BY revenue DESC
+    `;
 
-    const topProductsAgg = Order.aggregate([
-      { $match: { createdAt: { $gte: since30 }, status: ALIVE } },
-      { $unwind: "$items" },
-      { $group: { _id: "$items.slug", title: { $first: "$items.title" }, qty: { $sum: "$items.qty" }, revenue: { $sum: { $multiply: ["$items.price", "$items.qty"] } } } },
-      { $sort: { qty: -1 } },
-      { $limit: 5 },
-    ]);
+    // Top products (last 30d)
+    const topProductsRows = await prisma.$queryRaw`
+      SELECT oi.slug AS slug,
+             MIN(oi.title) AS title,
+             SUM(oi.qty) AS qty,
+             SUM(oi.price * oi.qty) AS revenue
+      FROM OrderItem oi
+      JOIN \`Order\` o ON o.id = oi.orderId
+      WHERE o.createdAt >= ${since30} AND o.status != 'cancelled'
+      GROUP BY oi.slug
+      ORDER BY qty DESC
+      LIMIT 5
+    `;
 
-    // Profit (last 30d). For each order item, profit = (price - costPrice) * qty.
-    // costPrice is the snapshot captured at placement time; items without a
-    // recorded cost contribute zero to profit (a conservative under-estimate).
-    const profitAgg = Order.aggregate([
-      { $match: { createdAt: { $gte: since30 }, status: ALIVE } },
-      { $unwind: "$items" },
-      { $group: {
-        _id: null,
-        profit: { $sum: { $multiply: [
-          { $subtract: ["$items.price", { $ifNull: ["$items.costPrice", 0] }] },
-          "$items.qty",
-        ] } },
-        cost:   { $sum: { $multiply: [{ $ifNull: ["$items.costPrice", 0] }, "$items.qty"] } },
-        gross:  { $sum: { $multiply: ["$items.price", "$items.qty"] } },
-      } },
-    ]);
+    // Profit (last 30d) — only counts DELIVERED orders. Pending/confirmed/paid
+    // orders aren't realized yet (could still be cancelled, refunded, lost).
+    // `gross` is the basis for the margin %, so it also filters to delivered.
+    const profitRows = await prisma.$queryRaw`
+      SELECT
+        SUM((oi.price - COALESCE(oi.costPrice, 0)) * oi.qty) AS profit,
+        SUM(COALESCE(oi.costPrice, 0) * oi.qty) AS cost,
+        SUM(oi.price * oi.qty) AS gross
+      FROM OrderItem oi
+      JOIN \`Order\` o ON o.id = oi.orderId
+      WHERE o.createdAt >= ${since30} AND o.status = 'delivered'
+    `;
 
-    const [aggToday, agg7, agg30, aggPrev30, totalOrders, totalProducts, totalUsers, recent, unfulfilled, lowStock, topProducts, unverifiedPayments, dailyRev, byCategory, statusCounts, profitRow] = await Promise.all([
+    const [aggToday, agg7, agg30, aggPrev30, totalOrders, totalProducts, totalUsers, recent, unfulfilled, lowStock, unverifiedPayments, statusCounts] = await Promise.all([
       aggBetween(startOfToday),
       aggBetween(since7),
       aggBetween(since30),
       aggBetween(prev30Start, since30),
-      Order.countDocuments({}),
-      Product.countDocuments({}),
-      User.countDocuments({ role: { $ne: "admin" } }),
-      Order.find({}).sort({ createdAt: -1 }).limit(5).select("userEmail total status createdAt").lean(),
-      Order.find({ status: { $in: ["pending", "confirmed", "paid"] } }).sort({ createdAt: 1 }).limit(5).select("userEmail total createdAt").lean(),
-      Product.find({ inventory: { $lte: 5 } }).select("title slug inventory").limit(5).lean(),
-      topProductsAgg,
-      Order.countDocuments({ "payment.method": { $in: ["bkash", "nagad"] }, "payment.verified": false, status: { $nin: ["cancelled", "refunded"] } }),
-      dailyAgg,
-      categoryAgg,
-      Order.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-      profitAgg,
+      prisma.order.count(),
+      prisma.product.count(),
+      prisma.user.count({ where: { NOT: { role: "admin" } } }),
+      prisma.order.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, code: true, userEmail: true, total: true, status: true, createdAt: true },
+      }),
+      prisma.order.findMany({
+        where: { status: { in: ["pending", "confirmed", "paid"] } },
+        orderBy: { createdAt: "asc" },
+        take: 5,
+        select: { id: true, code: true, userEmail: true, total: true, createdAt: true },
+      }),
+      prisma.product.findMany({
+        where: { inventory: { lte: 5 } },
+        select: { slug: true, title: true, inventory: true },
+        take: 5,
+      }),
+      prisma.order.count({
+        where: {
+          paymentMethod: { in: ["bkash", "nagad"] },
+          paymentVerified: false,
+          NOT: { status: { in: ["cancelled", "refunded"] } },
+        },
+      }),
+      prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
     ]);
 
-    const profit30 = profitRow[0]?.profit || 0;
-    const gross30 = profitRow[0]?.gross || 0;
+    const profit30 = Number(profitRows[0]?.profit || 0);
+    const gross30 = Number(profitRows[0]?.gross || 0);
     const margin30 = gross30 > 0 ? Math.round((profit30 / gross30) * 100) : 0;
 
-    // Build the window even when some days have no orders.
-    const dailyMap = new Map(dailyRev.map((d) => [`${d._id.y}-${d._id.m}-${d._id.d}`, d.revenue]));
+    // Fill in any days that had zero orders.
+    const dailyMap = new Map(
+      (dailyRev || []).map((d) => {
+        const dt = new Date(d.day);
+        const key = `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`;
+        return [key, Number(d.revenue)];
+      })
+    );
     const last14 = [];
     for (let i = DAILY_DAYS - 1; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
@@ -115,23 +140,18 @@ async function loadStatsImpl() {
       last14.push({ label: d.toLocaleDateString("en-BD", { day: "numeric", month: "short" }), value: dailyMap.get(key) || 0 });
     }
 
-    const t30 = agg30[0]?.total || 0;
-    const tPrev = aggPrev30[0]?.total || 0;
-    const revenueDelta = tPrev > 0 ? Math.round(((t30 - tPrev) / tPrev) * 100) : (t30 > 0 ? 100 : 0);
+    const revenueDelta = aggPrev30.total > 0 ? Math.round(((agg30.total - aggPrev30.total) / aggPrev30.total) * 100) : (agg30.total > 0 ? 100 : 0);
+    const orderDelta = aggPrev30.count > 0 ? Math.round(((agg30.count - aggPrev30.count) / aggPrev30.count) * 100) : (agg30.count > 0 ? 100 : 0);
 
-    const c30 = agg30[0]?.count || 0;
-    const cPrev = aggPrev30[0]?.count || 0;
-    const orderDelta = cPrev > 0 ? Math.round(((c30 - cPrev) / cPrev) * 100) : (c30 > 0 ? 100 : 0);
-
-    const statusMap = Object.fromEntries(statusCounts.map((s) => [s._id, s.count]));
+    const statusMap = Object.fromEntries(statusCounts.map((s) => [s.status, s._count._all]));
 
     return {
-      todayRevenue: aggToday[0]?.total || 0,
-      todayOrders: aggToday[0]?.count || 0,
-      revenue7: agg7[0]?.total || 0,
-      orderCount7: agg7[0]?.count || 0,
-      revenue30: t30,
-      orderCount30: c30,
+      todayRevenue: aggToday.total,
+      todayOrders: aggToday.count,
+      revenue7: agg7.total,
+      orderCount7: agg7.count,
+      revenue30: agg30.total,
+      orderCount30: agg30.count,
       profit30,
       margin30,
       revenueDelta,
@@ -144,12 +164,12 @@ async function loadStatsImpl() {
       paidCount: (statusMap.paid || 0) + (statusMap.confirmed || 0),
       shippedCount: statusMap.shipped || 0,
       deliveredCount: statusMap.delivered || 0,
-      recent: recent.map((o) => ({ id: String(o._id), userEmail: o.userEmail, total: o.total, status: o.status, createdAt: o.createdAt })),
-      unfulfilled: unfulfilled.map((o) => ({ id: String(o._id), userEmail: o.userEmail, total: o.total, createdAt: o.createdAt })),
+      recent: recent.map((o) => ({ id: o.code || String(o.id), userEmail: o.userEmail, total: o.total, status: o.status, createdAt: o.createdAt })),
+      unfulfilled: unfulfilled.map((o) => ({ id: o.code || String(o.id), userEmail: o.userEmail, total: o.total, createdAt: o.createdAt })),
       lowStock,
-      topProducts,
+      topProducts: topProductsRows.map((r) => ({ _id: r.slug, title: r.title, qty: Number(r.qty), revenue: Number(r.revenue) })),
       dailyRevenue: last14,
-      byCategory: byCategory.map((c) => ({ label: c._id, value: c.revenue })),
+      byCategory: byCategoryRows.map((c) => ({ label: c.label, value: Number(c.revenue) })),
     };
   } catch (e) {
     return { error: e.message };
@@ -210,7 +230,6 @@ export default async function AdminDashboard() {
         <KPI label="Customers" value={s.totalUsers} sub={`${s.totalProducts} products`} />
       </section>
 
-      {/* Action queue tiles */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { href: "/admin/orders?status=pending", label: "Awaiting confirmation", count: s.pendingCount, dot: "bg-amber-500", text: "text-amber-700" },
@@ -303,7 +322,7 @@ export default async function AdminDashboard() {
             <tbody className="divide-y divide-gray-100">
               {s.recent.map((o) => (
                 <tr key={o.id}>
-                  <td className="px-5 py-2"><Link href={`/admin/orders/${o.id}`} className="font-mono text-xs hover:underline">#{o.id.slice(-6)}</Link></td>
+                  <td className="px-5 py-2"><Link href={`/admin/orders/${o.id}`} className="font-mono text-xs hover:underline">#{o.id}</Link></td>
                   <td className="px-5 py-2 truncate max-w-[220px]">{o.userEmail}</td>
                   <td className="px-5 py-2"><span className="inline-block px-2 py-0.5 rounded text-xs bg-gray-100">{o.status}</span></td>
                   <td className="px-5 py-2 text-right">{money(o.total)}</td>

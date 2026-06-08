@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import mongoose from "mongoose";
 import { authOptions } from "../../../../../../lib/auth";
-import { dbConnect } from "../../../../../../lib/mongodb";
+import { prisma } from "../../../../../../lib/db";
 import { checkOrigin } from "../../../../../../lib/origin";
 import { rateLimit, clientIp } from "../../../../../../lib/rateLimit";
-import Order from "../../../../../../models/Order";
 import { sendOrderConfirmation } from "../../../../../../lib/mailer";
 
-// Re-send the order confirmation email for an order the user owns. Rate-limited
-// per IP so abuse can't flood the customer's inbox.
 export async function POST(req, ctx) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
 
@@ -27,14 +23,14 @@ export async function POST(req, ctx) {
   }
 
   const { id } = await ctx.params;
-  if (!mongoose.isValidObjectId(id)) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  }
+  const numId = Number(id);
+  const where = Number.isFinite(numId)
+    ? { id: numId }
+    : { code: String(id).toUpperCase() };
 
-  await dbConnect();
-  const order = await Order.findOne({
-    _id: id,
-    userEmail: session.user.email.toLowerCase(),
+  const order = await prisma.order.findFirst({
+    where: { ...where, userEmail: session.user.email.toLowerCase() },
+    include: { items: true },
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 

@@ -5,6 +5,7 @@ import ProductInfoTabs from "../../../components/ProductInfoTabs";
 import { getProductBySlug, getCollection, getRelatedProducts } from "../../../lib/products";
 import { getStoreSettings } from "../../../lib/settings";
 import ProductCard from "../../../components/ProductCard";
+import RecentlyViewed from "../../../components/RecentlyViewed";
 import { formatMoney } from "../../../lib/format";
 import { getBaseUrl } from "../../../lib/baseUrl";
 import { sanitizePageBody } from "../../../lib/sanitize";
@@ -156,6 +157,10 @@ export default async function ProductPage({ params }) {
           </div>
         )}
       </div>
+
+      {/* Tracks this slug into localStorage history and renders a row of
+          the user's other recent visits at the bottom. */}
+      <RecentlyViewed excludeSlug={product.slug} />
     </div>
   );
 }

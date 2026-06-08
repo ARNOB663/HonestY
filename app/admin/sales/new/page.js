@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { dbConnect } from "../../../../lib/mongodb";
-import Product from "../../../../models/Product";
+import { prisma } from "../../../../lib/db";
 import SalesGroupEditor from "../../../../components/admin/SalesGroupEditor";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSalesGroup() {
-  await dbConnect();
-  const products = await Product.find({}).select("slug title price compareAtPrice image collection").sort({ updatedAt: -1 }).lean();
+  const products = await prisma.product.findMany({
+    select: { slug: true, title: true, price: true, compareAtPrice: true, image: true, collection: true },
+    orderBy: { updatedAt: "desc" },
+  });
   const productOptions = products.map((p) => ({
     slug: p.slug,
     title: p.title,

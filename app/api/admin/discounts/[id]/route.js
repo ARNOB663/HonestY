@@ -1,13 +1,13 @@
 import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
-import { dbConnect } from "../../../../../lib/mongodb";
-import Discount from "../../../../../models/Discount";
+import { prisma } from "../../../../../lib/db";
 
 const ALLOWED = ["active", "value", "minSubtotal", "usageLimit", "expiresAt"];
 
 export const PATCH = withAdmin(async ({ body, params }) => {
-  await dbConnect();
-  const existing = await Discount.findById(params.id).lean();
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw httpError("Invalid id", 400);
+  const existing = await prisma.discount.findUnique({ where: { id } });
   if (!existing) throw httpError("Not found", 404);
 
   const update = {};
@@ -25,14 +25,15 @@ export const PATCH = withAdmin(async ({ body, params }) => {
     }
   }
 
-  await Discount.findByIdAndUpdate(params.id, update);
+  await prisma.discount.update({ where: { id }, data: update });
   try { revalidateTag("admin-discounts"); } catch {}
   return { ok: true };
 });
 
 export const DELETE = withAdmin(async ({ params }) => {
-  await dbConnect();
-  await Discount.findByIdAndDelete(params.id);
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw httpError("Invalid id", 400);
+  await prisma.discount.delete({ where: { id } });
   try { revalidateTag("admin-discounts"); } catch {}
   return { ok: true };
 });

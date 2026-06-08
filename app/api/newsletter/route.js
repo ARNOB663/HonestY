@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
+import { prisma } from "../../../lib/db";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
 import { checkOrigin } from "../../../lib/origin";
-import Subscriber from "../../../models/Subscriber";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +21,7 @@ export async function POST(req) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   if (typeof body.website === "string" && body.website.trim() !== "") {
-    return NextResponse.json({ ok: true }); // honeypot tripped
+    return NextResponse.json({ ok: true });
   }
 
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -30,13 +29,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "Enter a valid email" }, { status: 400 });
   }
 
-  await dbConnect();
-  // Idempotent: re-subscribing is a no-op, not an error.
+  await prisma.subscriber.upsert({
+    where: { email },
+    create: { email, source: "newsletter" },
+    update: {},
+  });
   try { revalidateTag("admin-subscribers"); } catch {}
-  await Subscriber.updateOne(
-    { email },
-    { $setOnInsert: { email, source: "newsletter" } },
-    { upsert: true }
-  );
   return NextResponse.json({ ok: true });
 }

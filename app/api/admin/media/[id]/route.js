@@ -1,11 +1,11 @@
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
-import { dbConnect } from "../../../../../lib/mongodb";
-import Media from "../../../../../models/Media";
+import { prisma } from "../../../../../lib/db";
 import { getCloudinary, isConfigured } from "../../../../../lib/cloudinary";
 
 export const DELETE = withAdmin(async ({ params }) => {
-  await dbConnect();
-  const doc = await Media.findById(params.id);
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw httpError("Invalid id", 400);
+  const doc = await prisma.media.findUnique({ where: { id } });
   if (!doc) throw httpError("Not found", 404);
   if (isConfigured()) {
     try {
@@ -14,14 +14,15 @@ export const DELETE = withAdmin(async ({ params }) => {
       // continue: keep DB cleanup even if remote delete fails
     }
   }
-  await doc.deleteOne();
+  await prisma.media.delete({ where: { id } });
   return { ok: true };
 });
 
 export const PATCH = withAdmin(async ({ body, params }) => {
-  await dbConnect();
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw httpError("Invalid id", 400);
   const update = {};
   if ("alt" in body) update.alt = String(body.alt || "").slice(0, 200);
-  await Media.findByIdAndUpdate(params.id, update);
+  await prisma.media.update({ where: { id }, data: update });
   return { ok: true };
 });

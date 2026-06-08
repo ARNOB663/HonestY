@@ -1,13 +1,11 @@
-import { dbConnect } from "../../../lib/mongodb";
-import Settings from "../../../models/Settings";
+import { prisma } from "../../../lib/db";
 import SettingsForm from "../../../components/admin/SettingsForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettings() {
-  await dbConnect();
-  const doc = await Settings.findOne({ key: "store" }).lean();
-  const initial = doc ? { ...doc, _id: String(doc._id) } : null;
+  const doc = await prisma.settings.findUnique({ where: { storeKey: "store" } });
+  const initial = doc ? { ...doc, _id: String(doc.id) } : null;
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">Settings</h1>

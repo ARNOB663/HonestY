@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { dbConnect } from "../../../lib/mongodb";
-import Page from "../../../models/Page";
+import { prisma } from "../../../lib/db";
 import { sanitizePageBody } from "../../../lib/sanitize";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +7,8 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   try {
-    await dbConnect();
-    const page = await Page.findOne({ slug, published: true }).lean();
-    if (!page) return {};
+    const page = await prisma.page.findUnique({ where: { slug } });
+    if (!page || !page.published) return {};
     return {
       title: page.metaTitle || `${page.title} — Honesty`,
       description: page.metaDescription,
@@ -20,9 +18,8 @@ export async function generateMetadata({ params }) {
 
 export default async function PublicPage({ params }) {
   const { slug } = await params;
-  await dbConnect();
-  const page = await Page.findOne({ slug, published: true }).lean();
-  if (!page) notFound();
+  const page = await prisma.page.findUnique({ where: { slug } });
+  if (!page || !page.published) notFound();
   const safeBody = sanitizePageBody(page.body);
   return (
     <article className="max-w-3xl mx-auto px-4 py-16">

@@ -10,18 +10,27 @@ const DEFAULT_CARDS = [
 
 export default function VisualCategories({ eyebrow, title, cards }) {
   const items = Array.isArray(cards) && cards.length ? cards : DEFAULT_CARDS;
+  // Flex-wrap layout so partial rows center automatically. Each card has a
+  // responsive basis so 1 item is wide-and-centered, 6+ items fall back to a
+  // 6-up grid. min(items, 6) caps the per-card width so a single card doesn't
+  // expand to the whole row width.
   return (
     <section className="max-w-7xl mx-auto px-4 py-16">
       <div className="text-center mb-10">
         <p className="text-[#c9a961] text-xs font-semibold tracking-[0.2em] uppercase mb-2">{eyebrow || "Shop by Category"}</p>
         <h2 className="font-serif text-3xl md:text-4xl text-[#1a2b4a]">{title || "Explore our collections"}</h2>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         {items.map((c) => (
           <Link
             key={c.slug || c.title}
             href={c.slug ? `/collections/${c.slug}` : "/products"}
-            className="group relative aspect-[3/4] rounded-lg overflow-hidden bg-[#f5f1e8]"
+            className="group relative aspect-[3/4] rounded-lg overflow-hidden bg-[#f5f1e8]
+              basis-[calc(50%-0.375rem)]
+              sm:basis-[calc(33.333%-0.5rem)]
+              md:basis-[calc(25%-0.5625rem)]
+              lg:basis-[calc(16.666%-0.625rem)]
+              min-w-[140px] max-w-[260px]"
           >
             {c.image && (
               <Image

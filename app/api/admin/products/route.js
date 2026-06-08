@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../lib/withAdmin";
-import { dbConnect } from "../../../../lib/mongodb";
-import Product from "../../../../models/Product";
+import { prisma } from "../../../../lib/db";
 import { nonNegNumber, sanitizeVariants, sanitizeSpecs } from "../../../../lib/productSanitize";
 import { sanitizePageBody } from "../../../../lib/sanitize";
 
-// Invalidate storefront caches whenever the catalog changes. Without this,
-// homepage / collections / product pages stay stale for up to `revalidate`
-// seconds (homepage = 1 hour).
 function bustStorefrontCaches(slug) {
   try {
     revalidatePath("/");
@@ -20,13 +16,13 @@ function bustStorefrontCaches(slug) {
 }
 
 export const GET = withAdmin(async () => {
-  await dbConnect();
-  const products = await Product.find({}).sort({ updatedAt: -1 }).lean();
+  const products = await prisma.product.findMany({
+    orderBy: { updatedAt: "desc" },
+    include: { variants: true },
+  });
   return NextResponse.json({ products });
 });
 
-// Hard cap on rich-text description to prevent a single product blowing up
-// page weight or DB doc size.
 const MAX_DESC_LEN = 50000;
 
 export const POST = withAdmin(async ({ body }) => {
@@ -41,24 +37,37 @@ export const POST = withAdmin(async ({ body }) => {
   if (costPrice === null) throw httpError("costPrice must be ≥ 0");
   const rawDesc = typeof body.description === "string" ? body.description.slice(0, MAX_DESC_LEN) : "";
 
-  await dbConnect();
-  const product = await Product.create({
-    slug: String(body.slug).trim().toLowerCase(),
-    title: String(body.title).trim(),
-    description: sanitizePageBody(rawDesc),
-    price,
-    compareAtPrice: compareAt,
-    costPrice: costPrice ?? 0,
-    image: body.image,
-    images: Array.isArray(body.images) ? body.images : [],
-    collection: body.collection,
-    tags: Array.isArray(body.tags) ? body.tags : [],
-    inventory,
-    featured: !!body.featured,
-    variants: sanitizeVariants(body.variants),
-    specs: sanitizeSpecs(body.specs),
-    warranty: typeof body.warranty === "string" ? body.warranty.slice(0, 5000) : "",
+  const variantsData = sanitizeVariants(body.variants);
+
+  const product = await prisma.product.create({
+    data: {
+      slug: String(body.slug).trim().toLowerCase(),
+      title: String(body.title).trim(),
+      description: sanitizePageBody(rawDesc),
+      price,
+      compareAtPrice: compareAt,
+      costPrice: costPrice ?? 0,
+      image: body.image,
+      images: Array.isArray(body.images) ? body.images : [],
+      collection: body.collection,
+      tags: Array.isArray(body.tags) ? body.tags : [],
+      inventory,
+      featured: !!body.featured,
+      specs: sanitizeSpecs(body.specs),
+      warranty: typeof body.warranty === "string" ? body.warranty.slice(0, 5000) : "",
+      variants: {
+        create: (variantsData || []).map((v) => ({
+          variantId: v.id,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          inventory: v.inventory,
+          image: v.image,
+          colorHex: v.colorHex,
+        })),
+      },
+    },
   });
   bustStorefrontCaches(product.slug);
-  return { ok: true, id: String(product._id) };
+  return { ok: true, id: String(product.id) };
 });

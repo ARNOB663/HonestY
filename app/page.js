@@ -4,7 +4,6 @@ import CategoryTabs from "../components/CategoryTabs";
 import NewsletterForm from "../components/NewsletterForm";
 import VisualCategories from "../components/VisualCategories";
 import Testimonials from "../components/Testimonials";
-import BrandStory from "../components/BrandStory";
 import TrustBadges from "../components/TrustBadges";
 import { getFeaturedProducts, getAllProducts, getOnSaleProducts, getActiveSalesGroups } from "../lib/products";
 import { getStoreSettings } from "../lib/settings";
@@ -118,17 +117,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 7. BRAND STORY */}
-      <BrandStory
-        eyebrow={settings.brandStoryEyebrow}
-        title={settings.brandStoryTitle}
-        body={settings.brandStoryBody}
-        ctaText={settings.brandStoryCtaText}
-        ctaHref={settings.brandStoryCtaHref}
-        image={settings.brandStoryImage}
-      />
-
-      {/* 8. TESTIMONIALS */}
+      {/* 7. TESTIMONIALS */}
       <Testimonials items={settings.testimonials} />
 
       {/* 9. NEWSLETTER */}

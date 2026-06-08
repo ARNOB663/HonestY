@@ -24,11 +24,19 @@ const CSP = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Drop ETags & x-powered-by for slightly faster mobile responses.
+  poweredByHeader: false,
+  // Reduce client JS by tree-shaking lucide/heavy named exports if added later.
+  // No effect today, but cheap insurance for future libs.
+  experimental: { optimizePackageImports: ["nodemailer", "sanitize-html"] },
   images: {
-    // Allow any HTTPS image host. Admins paste product/banner image URLs from
-    // arbitrary sources (Cloudinary, Unsplash, suppliers); without this a
-    // non-whitelisted host makes next/image throw and breaks the storefront.
     remotePatterns: [{ protocol: "https", hostname: "**" }],
+    // Limit device sizes — fewer image variants generated, faster cold start
+    // on cPanel.
+    deviceSizes: [360, 640, 750, 1080, 1280, 1920],
+    imageSizes: [16, 32, 64, 96, 128, 256, 384],
+    // Cache optimized images for a year — Cloudinary delivers permanent URLs.
+    minimumCacheTTL: 60 * 60 * 24 * 365,
   },
   async headers() {
     return [

@@ -89,7 +89,7 @@
 - Strict Content-Security-Policy header
 - HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
 - Sanitise all user-generated HTML (reviews, Q&A) via DOMPurify
-- SQL injection — using Mongoose ODM ✓ (no raw queries)
+- SQL injection — using Prisma ORM ✓ (parameterised queries; raw `$queryRaw` only with `Prisma.sql` tagged templates)
 - CSRF — NextAuth handles via signed tokens ✓
 
 ### Payments

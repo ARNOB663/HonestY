@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { dbConnect } from "../../../../lib/mongodb";
+import { prisma } from "../../../../lib/db";
 import { rateLimit, clientIp } from "../../../../lib/rateLimit";
 import { checkOrigin } from "../../../../lib/origin";
-import User from "../../../../models/User";
 
 export async function POST(req) {
   if (!checkOrigin(req)) return NextResponse.json({ error: "Bad origin" }, { status: 403 });
@@ -31,21 +30,25 @@ export async function POST(req) {
 
   const hash = crypto.createHash("sha256").update(token).digest("hex");
 
-  await dbConnect();
-  const user = await User.findOne({
-    resetTokenHash: hash,
-    resetTokenExpiresAt: { $gt: new Date() },
+  const user = await prisma.user.findFirst({
+    where: {
+      resetTokenHash: hash,
+      resetTokenExpiresAt: { gt: new Date() },
+    },
   });
   if (!user) {
     return NextResponse.json({ error: "Invalid or expired link" }, { status: 400 });
   }
 
-  user.passwordHash = await bcrypt.hash(password, 12);
-  user.resetTokenHash = undefined;
-  user.resetTokenExpiresAt = undefined;
-  // Bump tokenVersion to invalidate any active sessions on other devices.
-  user.tokenVersion = (user.tokenVersion || 0) + 1;
-  await user.save();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: await bcrypt.hash(password, 12),
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
+      tokenVersion: { increment: 1 },
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

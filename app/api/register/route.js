@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { dbConnect } from "../../../lib/mongodb";
-import User from "../../../models/User";
+import { prisma } from "../../../lib/db";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
 import { checkOrigin } from "../../../lib/origin";
 import { isDisposableEmail } from "../../../lib/disposableEmail";
@@ -21,8 +20,6 @@ export async function POST(req) {
   let body;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  // Honeypot: real users never fill this hidden field. Pretend success so bots
-  // don't learn they were filtered.
   if (typeof body.website === "string" && body.website.trim() !== "") {
     return NextResponse.json({ ok: true });
   }
@@ -40,8 +37,6 @@ export async function POST(req) {
   if (isDisposableEmail(email)) {
     return NextResponse.json({ error: "Please use a permanent email address" }, { status: 400 });
   }
-  // Per-email rate limit: protects against distributed bots that rotate IPs
-  // but reuse the same email. 3 attempts/day per email is plenty for a real user.
   const emailRl = await rateLimit({ key: `register-email:${email}`, limit: 3, windowMs: 24 * 60 * 60 * 1000 });
   if (!emailRl.ok) {
     return NextResponse.json({ error: "Too many attempts for this email" }, {
@@ -50,13 +45,11 @@ export async function POST(req) {
     });
   }
 
-  await dbConnect();
-  const existing = await User.findOne({ email });
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return NextResponse.json({ error: "Account already exists" }, { status: 409 });
   }
   const passwordHash = await bcrypt.hash(password, 12);
-  // Explicit destructure — do NOT spread `body`, to avoid role/tokenVersion mass-assignment.
-  await User.create({ email, passwordHash, name });
+  await prisma.user.create({ data: { email, passwordHash, name } });
   return NextResponse.json({ ok: true });
 }

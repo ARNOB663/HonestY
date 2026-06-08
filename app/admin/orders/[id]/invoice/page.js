@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { dbConnect } from "../../../../../lib/mongodb";
-import Order from "../../../../../models/Order";
+import { prisma } from "../../../../../lib/db";
 import { getStoreSettings } from "../../../../../lib/settings";
 import { formatMoney } from "../../../../../lib/format";
 import InvoiceAutoPrint from "../../../../../components/admin/InvoiceAutoPrint";
@@ -9,13 +8,12 @@ export const dynamic = "force-dynamic";
 
 export default async function InvoicePage({ params }) {
   const { id } = await params;
-  await dbConnect();
-  const doc = await Order.findById(id).lean();
-  if (!doc) notFound();
-  const order = { ...doc, _id: String(doc._id) };
+  const numId = Number(id);
+  const where = Number.isFinite(numId) ? { id: numId } : { code: String(id).toUpperCase() };
+  const order = await prisma.order.findFirst({ where, include: { items: true } });
+  if (!order) notFound();
   const settings = await getStoreSettings();
-  const short = order._id.slice(-6).toUpperCase();
-  const addr = order.shippingAddress || {};
+  const short = order.code || String(order.id);
 
   return (
     <div className="min-h-screen bg-white p-10 text-[#1a1a1a] print:p-0">
@@ -45,16 +43,16 @@ export default async function InvoicePage({ params }) {
         <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
           <div>
             <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Billed to</p>
-            <p className="font-semibold">{addr.name || order.userEmail}</p>
+            <p className="font-semibold">{order.shipName || order.userEmail}</p>
             <p>{order.userEmail}</p>
-            {addr.phone && <p>{addr.phone}</p>}
+            {order.shipPhone && <p>{order.shipPhone}</p>}
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Ship to</p>
-            <p>{addr.name}</p>
-            <p>{addr.line1}</p>
-            <p>{addr.city}, {addr.state} {addr.zip}</p>
-            <p>{addr.country}</p>
+            <p>{order.shipName}</p>
+            <p>{order.shipLine1}</p>
+            <p>{order.shipCity}, {order.shipState}</p>
+            <p>{order.shipCountry}</p>
           </div>
         </div>
 
@@ -68,8 +66,8 @@ export default async function InvoicePage({ params }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {(order.items || []).map((it, i) => (
-              <tr key={i}>
+            {(order.items || []).map((it) => (
+              <tr key={it.id}>
                 <td className="py-2 pr-2">{it.title}</td>
                 <td className="py-2 text-center">{it.qty}</td>
                 <td className="py-2 text-right">{formatMoney(it.price)}</td>
@@ -96,8 +94,8 @@ export default async function InvoicePage({ params }) {
         <div className="mt-10 border-t border-gray-200 pt-4 text-xs text-gray-600 grid grid-cols-2 gap-4">
           <div>
             <p className="font-semibold mb-1">Payment</p>
-            <p>Method: {(order.payment?.method || "—").toUpperCase()}</p>
-            {order.payment?.txnId && <p>TrxID: <span className="font-mono">{order.payment.txnId}</span></p>}
+            <p>Method: {(order.paymentMethod || "—").toUpperCase()}</p>
+            {order.paymentTxnId && <p>TrxID: <span className="font-mono">{order.paymentTxnId}</span></p>}
             <p>Status: <span className="capitalize">{order.status}</span></p>
           </div>
           <div className="text-right">

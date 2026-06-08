@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { dbConnect } from "../../../../lib/mongodb";
-import Product from "../../../../models/Product";
-import SalesGroup from "../../../../models/SalesGroup";
+import { prisma } from "../../../../lib/db";
 import SalesGroupEditor from "../../../../components/admin/SalesGroupEditor";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditSalesGroup({ params }) {
   const { id } = await params;
-  await dbConnect();
-  const doc = await SalesGroup.findById(id).lean();
+  const numId = Number(id);
+  if (!Number.isFinite(numId)) notFound();
+  const doc = await prisma.salesGroup.findUnique({ where: { id: numId } });
   if (!doc) notFound();
-  const products = await Product.find({}).select("slug title price compareAtPrice image collection").sort({ updatedAt: -1 }).lean();
+  const products = await prisma.product.findMany({
+    select: { slug: true, title: true, price: true, compareAtPrice: true, image: true, collection: true },
+    orderBy: { updatedAt: "desc" },
+  });
   const productOptions = products.map((p) => ({
     slug: p.slug,
     title: p.title,
@@ -21,7 +23,7 @@ export default async function EditSalesGroup({ params }) {
     image: p.image || "",
     collection: p.collection || "",
   }));
-  const group = { ...doc, _id: String(doc._id) };
+  const group = { ...doc, _id: String(doc.id) };
   return (
     <div className="space-y-5">
       <Link href="/admin/sales" className="text-sm text-gray-500 hover:underline">← Sales groups</Link>

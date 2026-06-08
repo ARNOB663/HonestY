@@ -3,26 +3,23 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
-import mongoose from "mongoose";
-import User from "../models/User.js";
+import { PrismaClient } from "../lib/generated/prisma/client.js";
+
+const prisma = new PrismaClient();
 
 async function main() {
   const email = process.argv[2];
   if (!email) throw new Error("Usage: node scripts/makeAdmin.js <email>");
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI is not set");
-  await mongoose.connect(uri);
-  const user = await User.findOneAndUpdate(
-    { email: email.toLowerCase() },
-    { role: "admin" },
-    { new: true }
-  );
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
+  const lower = email.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: lower } });
   if (!user) {
     console.error(`No user with email ${email}. Register first at /register.`);
     process.exit(1);
   }
+  await prisma.user.update({ where: { id: user.id }, data: { role: "admin" } });
   console.log(`✓ ${user.email} is now admin.`);
-  await mongoose.disconnect();
+  await prisma.$disconnect();
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

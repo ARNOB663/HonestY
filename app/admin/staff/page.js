@@ -1,8 +1,7 @@
 import { getServerSession } from "next-auth";
 import { unstable_cache } from "next/cache";
 import { authOptions } from "../../../lib/auth";
-import { dbConnect } from "../../../lib/mongodb";
-import User from "../../../models/User";
+import { prisma } from "../../../lib/db";
 import StaffManager from "../../../components/admin/StaffManager";
 
 function getEnvAdminEmails() {
@@ -15,10 +14,7 @@ function getEnvAdminEmails() {
 export const dynamic = "force-dynamic";
 
 const cachedStaff = unstable_cache(
-  async () => {
-    await dbConnect();
-    return User.find({ role: "admin" }).sort({ createdAt: 1 }).lean();
-  },
+  async () => prisma.user.findMany({ where: { role: "admin" }, orderBy: { createdAt: "asc" } }),
   ["admin-staff-list-v1"],
   { revalidate: 60, tags: ["admin-staff"] }
 );
@@ -27,14 +23,10 @@ export default async function AdminStaff() {
   const session = await getServerSession(authOptions);
   const docs = await cachedStaff();
   const envAdmins = getEnvAdminEmails();
-  // Merge DB admins + env-only admins (env emails that have never logged in
-  // and therefore have no DB row yet). Env entries are marked so the UI can
-  // visually flag them and disable the "Remove admin" action — demoting them
-  // would silently un-demote on their next login.
   const dbByEmail = new Map(docs.map((u) => [u.email.toLowerCase(), u]));
   const merged = [
     ...docs.map((u) => ({
-      _id: String(u._id),
+      _id: String(u.id),
       email: u.email,
       name: u.name,
       createdAt: u.createdAt,
@@ -52,7 +44,7 @@ export default async function AdminStaff() {
         <p className="leading-relaxed">
           Staff added here are stored in the database and can be promoted/demoted live — no redeploy needed.
           They are <strong>separate</strong> from the <code className="bg-blue-100 px-1 rounded">ADMIN_EMAIL</code> environment
-          variable (the owner accounts), which is set on Vercel and survives database changes.
+          variable (the owner accounts), which is set in cPanel and survives database changes.
         </p>
         <p className="mt-2 text-blue-800/80">
           Best practice: keep your personal email as <code className="bg-blue-100 px-1 rounded">ADMIN_EMAIL</code>,

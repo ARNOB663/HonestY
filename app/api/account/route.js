@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
-import { dbConnect } from "../../../lib/mongodb";
+import { prisma } from "../../../lib/db";
 import { checkOrigin } from "../../../lib/origin";
 import { rateLimit, clientIp } from "../../../lib/rateLimit";
-import User from "../../../models/User";
 
 const BD_PHONE = /^01[3-9]\d{8}$/;
 
@@ -15,7 +14,13 @@ function profileOf(u) {
     name: u.name || "",
     phone: u.phone || "",
     backupPhone: u.backupPhone || "",
-    defaultAddress: u.defaultAddress || null,
+    defaultAddress: {
+      line1: u.addrLine1 || "",
+      area: u.addrArea || "",
+      city: u.addrCity || "",
+      state: u.addrState || "",
+      country: u.addrCountry || "Bangladesh",
+    },
     role: u.role || "user",
   };
 }
@@ -25,10 +30,13 @@ export async function GET() {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
-  await dbConnect();
-  const user = await User.findOne({ email: session.user.email.toLowerCase() })
-    .select("email name phone backupPhone defaultAddress role")
-    .lean();
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email.toLowerCase() },
+    select: {
+      email: true, name: true, phone: true, backupPhone: true, role: true,
+      addrLine1: true, addrArea: true, addrCity: true, addrState: true, addrCountry: true,
+    },
+  });
   return NextResponse.json({ user: profileOf(user) });
 }
 
@@ -61,9 +69,7 @@ export async function PATCH(req) {
 
   const set = {};
 
-  if (body.name !== undefined) {
-    set.name = cleanString(body.name, 100);
-  }
+  if (body.name !== undefined) set.name = cleanString(body.name, 100);
   if (body.phone !== undefined) {
     const p = cleanString(body.phone, 20);
     if (p && !BD_PHONE.test(p)) {
@@ -80,30 +86,31 @@ export async function PATCH(req) {
   }
   if (body.defaultAddress !== undefined) {
     const a = body.defaultAddress || {};
-    set.defaultAddress = a === null ? null : {
-      line1: cleanString(a.line1, 200) || "",
-      area: cleanString(a.area, 100) || "",
-      city: cleanString(a.city, 100) || "",
-      state: cleanString(a.state, 60) || "",
-      country: cleanString(a.country, 60) || "Bangladesh",
-    };
+    set.addrLine1 = cleanString(a.line1, 200) || "";
+    set.addrArea = cleanString(a.area, 100) || "";
+    set.addrCity = cleanString(a.city, 100) || "";
+    set.addrState = cleanString(a.state, 60) || "";
+    set.addrCountry = cleanString(a.country, 60) || "Bangladesh";
   }
 
   if (Object.keys(set).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  await dbConnect();
-  const updated = await User.findOneAndUpdate(
-    { email: session.user.email.toLowerCase() },
-    { $set: set },
-    { new: true }
-  )
-    .select("email name phone backupPhone defaultAddress role")
-    .lean();
-
-  if (!updated) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  try {
+    const updated = await prisma.user.update({
+      where: { email: session.user.email.toLowerCase() },
+      data: set,
+      select: {
+        email: true, name: true, phone: true, backupPhone: true, role: true,
+        addrLine1: true, addrArea: true, addrCity: true, addrState: true, addrCountry: true,
+      },
+    });
+    return NextResponse.json({ user: profileOf(updated) });
+  } catch (e) {
+    if (e?.code === "P2025") {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+    throw e;
   }
-  return NextResponse.json({ user: profileOf(updated) });
 }

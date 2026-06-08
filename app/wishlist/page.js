@@ -52,10 +52,33 @@ export default function WishlistPage() {
 
         {products.length === 0 ? (
           <div className="bg-white border border-[#e8e4d8] rounded-lg p-12 text-center">
-            <p className="text-gray-500 text-sm">Your wishlist is empty.</p>
-            <Link href="/products" className="inline-block mt-4 bg-[#1a2b4a] text-white font-bold px-8 py-3 rounded text-sm tracking-wide hover:bg-[#0e1a30] transition-colors">
-              BROWSE PRODUCTS
-            </Link>
+            <svg className="mx-auto mb-5 text-[#c9a961]" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            <h2 className="font-serif text-2xl text-[#1a2b4a]">Nothing saved yet</h2>
+            <p className="text-gray-500 text-sm mt-2 max-w-md mx-auto">
+              Tap the heart icon on any product to save it here for later.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+              <Link href="/products" className="bg-[#1a2b4a] text-white font-bold px-7 py-3 rounded text-sm tracking-wide hover:bg-[#0e1a30] transition-colors">
+                BROWSE PRODUCTS
+              </Link>
+              <Link href="/cart" className="border border-[#1a2b4a] text-[#1a2b4a] font-bold px-7 py-3 rounded text-sm tracking-wide hover:bg-[#1a2b4a] hover:text-white transition-colors">
+                VIEW CART
+              </Link>
+            </div>
+            <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-xl mx-auto">
+              {[
+                { slug: "fashion", label: "Fashion" },
+                { slug: "home-living", label: "Home & Living" },
+                { slug: "beauty", label: "Beauty" },
+                { slug: "wellness", label: "Wellness" },
+              ].map((c) => (
+                <Link key={c.slug} href={`/collections/${c.slug}`} className="text-xs uppercase tracking-wide border border-[#e8e4d8] rounded py-2.5 hover:border-[#1a2b4a] hover:bg-[#fafaf7] transition-colors text-[#1a2b4a] font-medium">
+                  {c.label}
+                </Link>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

@@ -1,19 +1,17 @@
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import Product from "../../../models/Product";
+import { prisma } from "../../../lib/db";
 import ProductsManager from "../../../components/admin/ProductsManager";
 
 export const dynamic = "force-dynamic";
 
-// 60s cache keyed by tag so any product mutation can bust it instantly
-// via revalidateTag("admin-products"). Cuts the full catalog read out of
-// every admin nav.
 const cachedProducts = unstable_cache(
   async () => {
-    await dbConnect();
-    const products = await Product.find({}).sort({ updatedAt: -1 }).lean();
+    const products = await prisma.product.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: { variants: { select: { id: true } } },
+    });
     return products.map((p) => ({
-      _id: String(p._id),
+      _id: String(p.id),
       slug: p.slug,
       title: p.title,
       collection: p.collection || "",

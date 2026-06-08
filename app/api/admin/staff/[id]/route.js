@@ -1,17 +1,22 @@
 import { revalidateTag } from "next/cache";
 import { withAdmin, httpError } from "../../../../../lib/withAdmin";
-import { dbConnect } from "../../../../../lib/mongodb";
-import User from "../../../../../models/User";
+import { prisma } from "../../../../../lib/db";
 
 export const PATCH = withAdmin(async ({ body, params }) => {
   if (body.role && !["admin", "user"].includes(body.role)) throw httpError("invalid role");
-  await dbConnect();
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw httpError("Invalid id", 400);
   if (body.role === "user") {
-    const admins = await User.countDocuments({ role: "admin" });
-    const target = await User.findById(params.id);
+    const [admins, target] = await Promise.all([
+      prisma.user.count({ where: { role: "admin" } }),
+      prisma.user.findUnique({ where: { id } }),
+    ]);
     if (target?.role === "admin" && admins <= 1) throw httpError("Cannot demote the last admin");
   }
-  await User.findByIdAndUpdate(params.id, { role: body.role, $inc: { tokenVersion: 1 } });
+  await prisma.user.update({
+    where: { id },
+    data: { role: body.role, tokenVersion: { increment: 1 } },
+  });
   try { revalidateTag("admin-staff"); } catch {}
   return { ok: true };
 });

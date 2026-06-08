@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import SalesGroup from "../../../models/SalesGroup";
+import { prisma } from "../../../lib/db";
 
 export const dynamic = "force-dynamic";
 
 const cachedSalesGroups = unstable_cache(
   async () => {
-    await dbConnect();
-    const groups = await SalesGroup.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+    const groups = await prisma.salesGroup.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    });
     return groups.map((g) => ({
-      _id: String(g._id),
+      _id: String(g.id),
       title: g.title,
       subtitle: g.subtitle || "",
       slug: g.slug,

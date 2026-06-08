@@ -1,6 +1,5 @@
 import { withAdmin, httpError } from "../../../../../../lib/withAdmin";
-import { dbConnect } from "../../../../../../lib/mongodb";
-import Order from "../../../../../../models/Order";
+import { prisma } from "../../../../../../lib/db";
 import { sendCustomMessage } from "../../../../../../lib/mailer";
 
 export const POST = withAdmin(async ({ body, params }) => {
@@ -9,8 +8,13 @@ export const POST = withAdmin(async ({ body, params }) => {
   if (!subject) throw httpError("Subject is required");
   if (!message) throw httpError("Message is required");
 
-  await dbConnect();
-  const order = await Order.findById(params.id).lean();
+  // Accept either numeric id or 6-char `code`.
+  const numId = Number(params.id);
+  const where = Number.isFinite(numId)
+    ? { id: numId }
+    : { code: String(params.id).toUpperCase() };
+
+  const order = await prisma.order.findFirst({ where, include: { items: true } });
   if (!order) throw httpError("Order not found", 404);
 
   const result = await sendCustomMessage({

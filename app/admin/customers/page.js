@@ -1,36 +1,33 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { dbConnect } from "../../../lib/mongodb";
-import User from "../../../models/User";
-import Order from "../../../models/Order";
+import { prisma } from "../../../lib/db";
 import { formatMoney } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
 
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// Cache the unfiltered customer + spend snapshot. The page applies the search
-// filter on the cached result instead of hitting Mongo for every keystroke.
 const cachedCustomers = unstable_cache(
   async () => {
-    await dbConnect();
     const [users, agg] = await Promise.all([
-      User.find({}).select("email name role createdAt").sort({ createdAt: -1 }).limit(500).lean(),
-      Order.aggregate([
-        { $group: { _id: "$userEmail", orders: { $sum: 1 }, spend: { $sum: "$total" } } },
-      ]),
+      prisma.user.findMany({
+        select: { id: true, email: true, name: true, role: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      }),
+      prisma.order.groupBy({
+        by: ["userEmail"],
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
     ]);
-    const byEmail = Object.fromEntries(agg.map((r) => [r._id, r]));
+    const byEmail = Object.fromEntries(agg.map((r) => [r.userEmail, r]));
     return users.map((u) => ({
-      _id: String(u._id),
+      _id: String(u.id),
       email: u.email,
       name: u.name || "",
       role: u.role || "user",
       createdAt: u.createdAt,
-      orders: byEmail[u.email]?.orders || 0,
-      spend: byEmail[u.email]?.spend || 0,
+      orders: byEmail[u.email]?._count?._all || 0,
+      spend: byEmail[u.email]?._sum?.total || 0,
     }));
   },
   ["admin-customers-v1"],
@@ -39,21 +36,21 @@ const cachedCustomers = unstable_cache(
 
 export default async function AdminCustomers({ searchParams }) {
   const sp = (await searchParams) || {};
-  const q = (sp.q || "").trim().slice(0, 64);
+  const q = (sp.q || "").trim().slice(0, 64).toLowerCase();
 
   const all = await cachedCustomers();
   const users = q
-    ? all.filter((u) => {
-        const re = new RegExp(escapeRegex(q), "i");
-        return re.test(u.email) || re.test(u.name);
-      })
+    ? all.filter((u) =>
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.name || "").toLowerCase().includes(q)
+      )
     : all.slice(0, 200);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Customers <span className="text-gray-400 text-base font-normal">({users.length})</span></h1>
-        <form className="flex gap-2"><input name="q" defaultValue={q} placeholder="Search name or email…" className="border border-gray-300 rounded px-3 py-1.5 text-sm w-64" /><button className="bg-[#1a2b4a] text-white px-3 py-1.5 rounded text-sm">Search</button></form>
+        <form className="flex gap-2"><input name="q" defaultValue={sp.q || ""} placeholder="Search name or email…" className="border border-gray-300 rounded px-3 py-1.5 text-sm w-64" /><button className="bg-[#1a2b4a] text-white px-3 py-1.5 rounded text-sm">Search</button></form>
       </div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">

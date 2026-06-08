@@ -54,6 +54,7 @@ const GROUPS = [
     items: [
       { href: "/admin/settings", label: "Settings", icon: "settings" },
       { href: "/admin/staff", label: "Staff", icon: "staff" },
+      { href: "/admin/tools", label: "Tools", icon: "settings" },
       { href: "/admin/audit", label: "Audit log", icon: "audit" },
     ],
   },

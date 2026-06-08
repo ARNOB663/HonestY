@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { dbConnect } from "../../../../lib/mongodb";
+import { prisma } from "../../../../lib/db";
 import { rateLimit, clientIp } from "../../../../lib/rateLimit";
 import { checkOrigin } from "../../../../lib/origin";
-import Discount from "../../../../models/Discount";
-import Product from "../../../../models/Product";
 import { discountAmountFor, eligibleBase } from "../../../../lib/discount";
 
 export async function POST(req) {
@@ -25,22 +23,22 @@ export async function POST(req) {
   if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 });
   if (code.length > 40) return NextResponse.json({ error: "Invalid code" }, { status: 400 });
 
-  await dbConnect();
-  const d = await Discount.findOne({ code }).lean();
+  const d = await prisma.discount.findUnique({ where: { code } });
   const now = new Date();
   if (!d || !d.active) return NextResponse.json({ error: "Invalid code" }, { status: 404 });
-  if (d.expiresAt && new Date(d.expiresAt) < now) return NextResponse.json({ error: "Code expired" }, { status: 410 });
+  if (d.expiresAt && d.expiresAt < now) return NextResponse.json({ error: "Code expired" }, { status: 410 });
   if (d.usageLimit && d.usedCount >= d.usageLimit) return NextResponse.json({ error: "Code fully redeemed" }, { status: 410 });
   if (subtotal < (d.minSubtotal || 0)) return NextResponse.json({ error: `Minimum subtotal ৳${d.minSubtotal}` }, { status: 400 });
 
-  // Determine the eligible base. For collection-scoped codes we look up the
-  // collections of the cart items the client sent.
   let base = subtotal;
   if (d.appliesTo === "collection" && d.collectionSlug) {
     const items = Array.isArray(body.items) ? body.items : [];
     const slugs = [...new Set(items.map((i) => String(i.slug || "")).filter(Boolean))].slice(0, 100);
     const products = slugs.length
-      ? await Product.find({ slug: { $in: slugs } }).select("slug price collection").lean()
+      ? await prisma.product.findMany({
+          where: { slug: { in: slugs } },
+          select: { slug: true, price: true, collection: true },
+        })
       : [];
     const bySlug = Object.fromEntries(products.map((p) => [p.slug, p]));
     const lines = items.map((i) => {

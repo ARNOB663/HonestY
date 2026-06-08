@@ -1,0 +1,332 @@
+// Honesty SQL schema.
+// Migrated from Mongoose to Prisma + MySQL. Embedded Mongo subdocs are stored
+// as JSON columns when they're read-only display data, and as child tables
+// when they need their own queries (Order.items, Product.variants).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Users / Auth ────────────────────────────────────────────────────────
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  name                String?
+  passwordHash        String?
+  image               String?   @db.Text
+  provider            String    @default("credentials")
+  role                String    @default("user")
+  tokenVersion        Int       @default(0)
+  phone               String?
+  backupPhone         String?
+  // Default shipping address — inline fields keep it queryable without a join.
+  addrLine1           String?
+  addrArea            String?
+  addrCity            String?
+  addrState           String?
+  addrCountry         String?   @default("Bangladesh")
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+  // Wishlist + cart are per-user blobs; never queried by other users.
+  wishlist            Json?
+  cart                Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([role])
+}
+
+// ── Products ────────────────────────────────────────────────────────────
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  description    String?  @db.LongText
+  price          Float
+  compareAtPrice Float?
+  // Landed cost — drives profit metric. Never shown to customers.
+  costPrice      Float    @default(0)
+  image          String?  @db.Text
+  // Gallery, tags, specs — read together with the product, never separately.
+  images         Json?
+  tags           Json?
+  specs          Json?
+  collection     String?
+  inventory      Int      @default(100)
+  featured       Boolean  @default(false)
+  warranty       String?  @db.Text
+  variants       ProductVariant[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([collection])
+  @@index([featured])
+  @@fulltext([title, description])
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  // Stable client-side ID (used in cart items, order items)
+  variantId String
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  sku       String?
+  price     Float?
+  inventory Int     @default(0)
+  image     String? @db.Text
+  colorHex  String?
+
+  @@unique([productId, variantId])
+  @@index([variantId])
+}
+
+// ── Orders ──────────────────────────────────────────────────────────────
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  // Public-facing 6-char order code (was Mongo ObjectId tail) — preserved
+  // across migration so existing customer emails still resolve via /track.
+  code            String   @unique
+  userEmail       String
+  subtotal        Float
+  shipping        Float
+  discountCode    String?
+  discountAmount  Float    @default(0)
+  total           Float
+  status          String   @default("pending")
+  // Payment block — flattened (was embedded sub-doc in Mongo).
+  paymentMethod   String   @default("cod")
+  paymentPayer    String?
+  paymentTxnId    String?
+  paymentVerified Boolean  @default(false)
+  // Shipping address — flattened.
+  shipName        String?
+  shipPhone       String?
+  shipLine1       String?
+  shipCity        String?
+  shipState       String?
+  shipCountry     String?
+  // Admin ops
+  adminNotes      String?  @db.Text
+  refundAmount    Float    @default(0)
+  refundReason    String?
+  // Status changes — rarely queried, stored as JSON [{status,at,by}].
+  statusHistory   Json?
+  items           OrderItem[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Replicates Mongo's partial unique index on (method, txnId).
+  @@unique([paymentMethod, paymentTxnId], map: "uniq_method_txnid")
+  @@index([userEmail, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id          Int     @id @default(autoincrement())
+  orderId     Int
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  slug        String
+  variantId   String?
+  variantName String?
+  title       String
+  price       Float
+  // Snapshot of product.costPrice at placement time — frozen for profit math.
+  costPrice   Float   @default(0)
+  qty         Int
+  image       String? @db.Text
+
+  @@index([orderId])
+  @@index([slug])
+}
+
+// ── Catalog auxiliary ───────────────────────────────────────────────────
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  title     String
+  blurb     String?  @db.Text
+  image     String?  @db.Text
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder, title])
+}
+
+model SalesGroup {
+  id           Int      @id @default(autoincrement())
+  title        String
+  subtitle     String   @default("")
+  eyebrow      String   @default("Limited Time")
+  slug         String   @unique
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  // List of product slugs in display order.
+  productSlugs Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active])
+  @@index([sortOrder])
+}
+
+// ── Promotions ──────────────────────────────────────────────────────────
+
+model Discount {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  type            String    @default("percent")
+  value           Float
+  minSubtotal     Float     @default(0)
+  usageLimit      Int       @default(0)
+  usedCount       Int       @default(0)
+  active          Boolean   @default(true)
+  expiresAt       DateTime?
+  description     String?   @db.Text
+  appliesTo       String    @default("all")
+  collectionSlug  String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ── Content ─────────────────────────────────────────────────────────────
+
+model Page {
+  id              Int      @id @default(autoincrement())
+  slug            String   @unique
+  title           String
+  body            String?  @db.LongText
+  published       Boolean  @default(true)
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ── Settings (single-row "store" config) ────────────────────────────────
+
+model Settings {
+  // Always one row. `storeKey = "store"` enforces uniqueness at the column.
+  id                    Int      @id @default(autoincrement())
+  storeKey              String   @unique @default("store")
+
+  storeName             String   @default("Honesty")
+  supportEmail          String?
+  supportPhone          String?
+  currency              String   @default("BDT")
+  taxRate               Float    @default(0)
+  announcement          String?  @db.Text
+
+  // Shipping
+  dhakaShippingRate     Float    @default(60)
+  outsideShippingRate   Float    @default(120)
+  flatShippingRate      Float    @default(80)
+  freeShippingThreshold Float    @default(2000)
+
+  // Payment
+  bkashNumber           String   @default("01XXXXXXXXX")
+  nagadNumber           String   @default("01XXXXXXXXX")
+  enableBkash           Boolean  @default(true)
+  enableNagad           Boolean  @default(true)
+  enableCod             Boolean  @default(true)
+
+  // Section titles
+  saleTitle             String   @default("On sale now")
+  saleSubtitle          String   @default("Limited time — while stocks last")
+  bestSellersTitle      String   @default("Most loved this season")
+  bestSellersEyebrow    String   @default("Best Sellers")
+  favouritesTitle       String   @default("This week's favourites")
+  favouritesEyebrow     String   @default("Editor's Picks")
+  categoriesTitle       String   @default("Explore our collections")
+  categoriesEyebrow     String   @default("Shop by Category")
+
+  // Brand story
+  brandStoryEyebrow     String   @default("Our story")
+  brandStoryTitle       String?  @db.Text
+  brandStoryBody        String?  @db.LongText
+  brandStoryCtaText     String   @default("Discover the Range")
+  brandStoryCtaHref     String   @default("/products")
+  brandStoryImage       String?  @db.Text
+
+  // Footer
+  footerTagline         String   @default("Honest goods for slow living.")
+  footerInstagram       String?
+  footerFacebook        String?
+  footerWhatsapp        String?
+
+  // Read-only display arrays — single doc, never queried per-element.
+  navLinks              Json?
+  trustBadges           Json?
+  homeCategories        Json?
+  testimonials          Json?
+  footerColumns         Json?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ── Auxiliary ───────────────────────────────────────────────────────────
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  source    String   @default("newsletter")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockAlert {
+  id          Int      @id @default(autoincrement())
+  productSlug String
+  variantId   String?
+  email       String
+  notified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // One pending alert per email+product+variant.
+  @@unique([productSlug, variantId, email], map: "uniq_alert_target")
+  @@index([productSlug])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorEmail String?
+  method     String?
+  path       String?
+  status     Int?
+  ip         String?
+  userAgent  String?  @db.Text
+  body       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorEmail])
+  @@index([path])
+  @@index([createdAt])
+}
+
+model Media {
+  id         Int      @id @default(autoincrement())
+  publicId   String   @unique
+  url        String   @db.Text
+  width      Int?
+  height     Int?
+  format     String?
+  bytes      Int?
+  folder     String?
+  alt        String?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

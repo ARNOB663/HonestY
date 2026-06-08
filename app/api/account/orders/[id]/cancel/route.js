@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import mongoose from "mongoose";
 import { authOptions } from "../../../../../../lib/auth";
-import { dbConnect } from "../../../../../../lib/mongodb";
+import { prisma } from "../../../../../../lib/db";
 import { checkOrigin } from "../../../../../../lib/origin";
 import { rateLimit, clientIp } from "../../../../../../lib/rateLimit";
-import Order from "../../../../../../models/Order";
-import Product from "../../../../../../models/Product";
-import Discount from "../../../../../../models/Discount";
 import { sendStatusUpdate } from "../../../../../../lib/mailer";
 
 // User-initiated cancellation. Only allowed while the order is still in an
@@ -31,49 +27,62 @@ export async function POST(req, ctx) {
   }
 
   const { id } = await ctx.params;
-  if (!mongoose.isValidObjectId(id)) {
+  // `id` is either the numeric SQL id OR the 6-char `code`. Try numeric first.
+  const numId = Number(id);
+  const where = Number.isFinite(numId)
+    ? { id: numId }
+    : { code: String(id).toUpperCase() };
+
+  const email = session.user.email.toLowerCase();
+
+  const cancelled = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { ...where, userEmail: email },
+      include: { items: true },
+    });
+    if (!order) return { error: "not_found" };
+    if (!CANCELLABLE.has(order.status)) {
+      return { error: "wrong_status", status: order.status };
+    }
+    // Mark cancelled.
+    await tx.order.update({ where: { id: order.id }, data: { status: "cancelled" } });
+
+    // Restock items.
+    for (const item of order.items || []) {
+      if (item.variantId) {
+        await tx.productVariant.updateMany({
+          where: { variantId: item.variantId },
+          data: { inventory: { increment: item.qty } },
+        });
+      } else {
+        await tx.product.updateMany({
+          where: { slug: item.slug },
+          data: { inventory: { increment: item.qty } },
+        });
+      }
+    }
+
+    // Release a discount usage slot if one was claimed.
+    if (order.discountCode) {
+      await tx.discount.updateMany({
+        where: { code: order.discountCode, usedCount: { gt: 0 } },
+        data: { usedCount: { decrement: 1 } },
+      });
+    }
+
+    return { order };
+  });
+
+  if (cancelled.error === "not_found") {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
-
-  await dbConnect();
-
-  // Atomically move from cancellable status to "cancelled". Returns null if
-  // somebody else (admin) already changed status or the order isn't yours.
-  const cancelled = await Order.findOneAndUpdate(
-    { _id: id, userEmail: session.user.email.toLowerCase(), status: { $in: [...CANCELLABLE] } },
-    { $set: { status: "cancelled" } },
-    { new: true }
-  );
-
-  if (!cancelled) {
-    const exists = await Order.findOne({ _id: id, userEmail: session.user.email.toLowerCase() })
-      .select("status")
-      .lean();
-    if (!exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    return NextResponse.json({ error: `Cannot cancel an order in status "${exists.status}". Contact support.` }, { status: 409 });
-  }
-
-  // Restock items.
-  for (const item of cancelled.items || []) {
-    if (item.variantId) {
-      await Product.updateOne(
-        { slug: item.slug, "variants.id": item.variantId },
-        { $inc: { "variants.$.inventory": item.qty } }
-      );
-    } else {
-      await Product.updateOne({ slug: item.slug }, { $inc: { inventory: item.qty } });
-    }
-  }
-
-  // Release a discount usage slot if one was claimed.
-  if (cancelled.discountCode) {
-    await Discount.updateOne(
-      { code: cancelled.discountCode, usedCount: { $gt: 0 } },
-      { $inc: { usedCount: -1 } }
+  if (cancelled.error === "wrong_status") {
+    return NextResponse.json(
+      { error: `Cannot cancel an order in status "${cancelled.status}". Contact support.` },
+      { status: 409 }
     );
   }
 
-  sendStatusUpdate(cancelled, "cancelled").catch(() => {});
-
+  sendStatusUpdate({ ...cancelled.order, status: "cancelled" }, "cancelled").catch(() => {});
   return NextResponse.json({ ok: true });
 }

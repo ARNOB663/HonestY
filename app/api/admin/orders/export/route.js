@@ -1,6 +1,5 @@
 import { requireAdminApi } from "../../../../../lib/adminAuth";
-import { dbConnect } from "../../../../../lib/mongodb";
-import Order from "../../../../../models/Order";
+import { prisma } from "../../../../../lib/db";
 
 function csvCell(v) {
   if (v === null || v === undefined) return "";
@@ -9,69 +8,68 @@ function csvCell(v) {
   return s;
 }
 
-function safeRegex(s) {
-  return new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-}
-
 export async function GET(req) {
   const auth = await requireAdminApi(req);
   if (auth.error) return auth.error;
 
   const url = new URL(req.url);
-  const filter = {};
   const status = url.searchParams.get("status");
   const q = url.searchParams.get("q");
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
-  if (status) filter.status = status;
+
+  const where = {};
+  if (status) where.status = status;
   if (q) {
-    const re = safeRegex(q);
-    filter.$or = [
-      { userEmail: re },
-      { "shippingAddress.name": re },
-      { "shippingAddress.phone": re },
-      { "payment.txnId": new RegExp(q.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+    const qLower = q.toLowerCase();
+    const qUpper = q.toUpperCase();
+    where.OR = [
+      { userEmail: { contains: qLower } },
+      { shipName: { contains: qLower } },
+      { shipPhone: { contains: qLower } },
+      { paymentTxnId: { contains: qUpper } },
     ];
   }
   if (from || to) {
-    filter.createdAt = {};
-    if (from) filter.createdAt.$gte = new Date(from);
+    where.createdAt = {};
+    if (from) where.createdAt.gte = new Date(from);
     if (to) {
       const d = new Date(to);
       d.setDate(d.getDate() + 1);
-      filter.createdAt.$lt = d;
+      where.createdAt.lt = d;
     }
   }
 
-  await dbConnect();
-  const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(5000).lean();
+  const orders = await prisma.order.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+    include: { items: true },
+  });
 
   const headers = [
     "id", "createdAt", "status", "email", "name", "phone",
-    "address", "city", "state", "zip",
+    "address", "city", "state",
     "paymentMethod", "paymentVerified", "txnId", "payerNumber",
     "items", "subtotal", "shipping", "discountCode", "discountAmount", "total",
   ];
   const rows = [headers.join(",")];
   for (const o of orders) {
-    const a = o.shippingAddress || {};
-    const p = o.payment || {};
     const itemsStr = (o.items || []).map((i) => `${i.qty}× ${i.title}`).join(" | ");
     rows.push([
-      String(o._id),
+      o.code || String(o.id),
       o.createdAt?.toISOString?.() || "",
       o.status,
       o.userEmail,
-      a.name,
-      a.phone,
-      a.line1,
-      a.city,
-      a.state,
-      a.zip,
-      p.method,
-      p.verified ? "yes" : "no",
-      p.txnId,
-      p.payerNumber,
+      o.shipName,
+      o.shipPhone,
+      o.shipLine1,
+      o.shipCity,
+      o.shipState,
+      o.paymentMethod,
+      o.paymentVerified ? "yes" : "no",
+      o.paymentTxnId,
+      o.paymentPayer,
       itemsStr,
       o.subtotal,
       o.shipping,

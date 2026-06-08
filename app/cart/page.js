@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { formatMoney } from "../../lib/format";
 import { useShipping, computeShipping } from "../../lib/useShipping";
+import RecentlyViewed from "../../components/RecentlyViewed";
 
 function lineKey(slug, variantId) {
   return variantId ? `${slug}#${variantId}` : slug;
@@ -216,6 +217,7 @@ export default function CartPage() {
           </div>
         </aside>
       </div>
+      <RecentlyViewed title="Recently viewed" />
     </div>
   );
 }
