@@ -76,8 +76,8 @@ const nextConfig = {
     }
     return config;
   },
-  // Reduce client JS by tree-shaking heavy named exports.
-  experimental: { optimizePackageImports: ["sanitize-html"] },
+  // Reduce client JS by tree-shaking heavy named exports (only client-side libs).
+  experimental: { optimizePackageImports: [] },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
     // Limit device sizes — fewer image variants generated, faster cold start
