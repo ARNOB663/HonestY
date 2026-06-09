@@ -34,13 +34,48 @@ const nextConfig = {
     "@prisma/client",
     "prisma",
     "next-auth",
+    "next-auth/providers/credentials",
+    "next-auth/providers/google",
     "xlsx",
     "bcryptjs",
     "nodemailer",
     "cloudinary",
     "jose",
     "@panva/hkdf",
+    "sanitize-html",
   ],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Aggressively externalize the listed packages from the server bundle so
+      // their CJS internals never get touched by webpack's interop layer.
+      const extra = [
+        "next-auth",
+        "next-auth/providers/credentials",
+        "next-auth/providers/google",
+        "next-auth/react",
+        "next-auth/jwt",
+        "@prisma/client",
+        "xlsx",
+        "bcryptjs",
+        "nodemailer",
+        "cloudinary",
+        "jose",
+        "@panva/hkdf",
+        "sanitize-html",
+      ];
+      const original = config.externals || [];
+      config.externals = [
+        ...(Array.isArray(original) ? original : [original]),
+        ({ request }, callback) => {
+          if (extra.some((m) => request === m || request.startsWith(m + "/"))) {
+            return callback(null, "commonjs " + request);
+          }
+          return callback();
+        },
+      ];
+    }
+    return config;
+  },
   // Reduce client JS by tree-shaking heavy named exports.
   experimental: { optimizePackageImports: ["sanitize-html"] },
   images: {
