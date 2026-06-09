@@ -26,8 +26,12 @@ const CSP = [
 const nextConfig = {
   // Drop ETags & x-powered-by for slightly faster mobile responses.
   poweredByHeader: false,
-  // Reduce client JS by tree-shaking lucide/heavy named exports if added later.
-  // No effect today, but cheap insurance for future libs.
+  // Mark Prisma + next-auth as runtime externals so webpack does not try to
+  // bundle their mixed ESM/CJS internals — without this, the cPanel webpack
+  // build surfaces "TypeError: e is not a function" during page-data
+  // collection. These are server-only anyway.
+  serverExternalPackages: ["@prisma/client", "prisma", "next-auth"],
+  // Reduce client JS by tree-shaking heavy named exports.
   experimental: { optimizePackageImports: ["nodemailer", "sanitize-html"] },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
