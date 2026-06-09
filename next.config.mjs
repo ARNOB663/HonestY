@@ -30,9 +30,19 @@ const nextConfig = {
   // bundle their mixed ESM/CJS internals — without this, the cPanel webpack
   // build surfaces "TypeError: e is not a function" during page-data
   // collection. These are server-only anyway.
-  serverExternalPackages: ["@prisma/client", "prisma", "next-auth"],
+  serverExternalPackages: [
+    "@prisma/client",
+    "prisma",
+    "next-auth",
+    "xlsx",
+    "bcryptjs",
+    "nodemailer",
+    "cloudinary",
+    "jose",
+    "@panva/hkdf",
+  ],
   // Reduce client JS by tree-shaking heavy named exports.
-  experimental: { optimizePackageImports: ["nodemailer", "sanitize-html"] },
+  experimental: { optimizePackageImports: ["sanitize-html"] },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
     // Limit device sizes — fewer image variants generated, faster cold start
