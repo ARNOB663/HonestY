@@ -1,3 +1,34 @@
+import { realpathSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectDir = path.dirname(fileURLToPath(import.meta.url));
+
+// cPanel/CloudLinux Node Selector replaces ./node_modules with a symlink into
+// ~/nodevenv/<app>/<version>/lib/node_modules. Turbopack refuses to follow
+// symlinks that resolve outside its filesystem root ("Symlink node_modules is
+// invalid, it points out of the filesystem root"). The documented fix is to
+// set `turbopack.root` to the common parent of the project and the symlink
+// target (the home directory on cPanel). Detect that layout at config time so
+// local builds (real node_modules) keep the default root.
+function detectTurbopackRoot() {
+  try {
+    const nm = path.join(projectDir, "node_modules");
+    const real = realpathSync(nm);
+    if (real === nm) return undefined; // not a symlink — default root is fine
+    let common = projectDir;
+    while (!real.startsWith(common + path.sep)) {
+      const parent = path.dirname(common);
+      if (parent === common) return undefined; // hit filesystem root — give up
+      common = parent;
+    }
+    return common;
+  } catch {
+    return undefined;
+  }
+}
+const turbopackRoot = detectTurbopackRoot();
+
 // Content-Security-Policy. Notes:
 //  - 'unsafe-inline' on script-src is required because Next.js inlines its
 //    hydration bootstrap; moving to a nonce would require a per-request layer.
@@ -26,10 +57,11 @@ const CSP = [
 const nextConfig = {
   // Drop ETags & x-powered-by for slightly faster mobile responses.
   poweredByHeader: false,
-  // Mark Prisma + next-auth as runtime externals so webpack does not try to
-  // bundle their mixed ESM/CJS internals — without this, the cPanel webpack
-  // build surfaces "TypeError: e is not a function" during page-data
-  // collection. These are server-only anyway.
+  // See detectTurbopackRoot() above — only set when node_modules is symlinked
+  // outside the project (cPanel/CloudLinux layout).
+  ...(turbopackRoot ? { turbopack: { root: turbopackRoot } } : {}),
+  // The generated Prisma client must load its native query engine from disk —
+  // keep it external to the server bundle.
   serverExternalPackages: ["@prisma/client", "prisma"],
   experimental: { optimizePackageImports: ["nodemailer", "sanitize-html"] },
   images: {
