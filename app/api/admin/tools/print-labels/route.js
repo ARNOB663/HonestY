@@ -7,7 +7,11 @@ import { prisma } from "../../../../../lib/db";
 
 function csv(v) {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  let s = String(v);
+  // Neutralize spreadsheet formula injection: customer-controlled fields
+  // (name, address) could start with = + - @ and execute when the CSV is
+  // opened in Excel/LibreOffice.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }

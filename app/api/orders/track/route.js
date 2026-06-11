@@ -16,10 +16,26 @@ export async function GET(req) {
     include: { items: true },
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  // Whitelist the response — the full row carries internal-only data
+  // (adminNotes, per-item costPrice, statusHistory with staff emails).
   return NextResponse.json({
     order: {
-      ...order,
       _id: order.code || String(order.id),
+      status: order.status,
+      createdAt: order.createdAt,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      discountCode: order.discountCode,
+      discountAmount: order.discountAmount,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      items: (order.items || []).map((it) => ({
+        title: it.title,
+        variantName: it.variantName,
+        qty: it.qty,
+        price: it.price,
+        image: it.image,
+      })),
     },
   });
 }
