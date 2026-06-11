@@ -63,7 +63,14 @@ const nextConfig = {
   // The generated Prisma client must load its native query engine from disk —
   // keep it external to the server bundle.
   serverExternalPackages: ["@prisma/client", "prisma"],
-  experimental: { optimizePackageImports: ["nodemailer", "sanitize-html"] },
+  experimental: {
+    optimizePackageImports: ["nodemailer", "sanitize-html"],
+    // CloudLinux LVE caps processes/threads on shared hosting; the default
+    // 7-worker page-data collection dies with "OS can't spawn worker thread"
+    // (EAGAIN). Single-worker builds are slower but stay inside the limit.
+    // Reuses the symlink detection as the "are we on cPanel" signal.
+    ...(turbopackRoot ? { cpus: 1, workerThreads: false } : {}),
+  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
     // Limit device sizes — fewer image variants generated, faster cold start
