@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCart } from "../../context/CartContext";
 import { formatMoney, BD_DIVISIONS, getDistrictsForDivision, getThanasForDistrict } from "../../lib/format";
 import { useShipping, computeShipping } from "../../lib/useShipping";
+import { trackPurchase } from "../../lib/analytics";
 
 const inputCls = "w-full border border-[#e8e4d8] rounded px-3 py-2.5 text-sm outline-none focus:border-[#1a2b4a] transition-colors bg-white";
 
@@ -64,6 +65,10 @@ export default function CheckoutPage() {
   const shippingSettings = useShipping();
   const [placing, setPlacing] = useState(false);
   const [done, setDone] = useState(false);
+  // Guards the Meta Purchase event. Success is in-page state, not a route
+  // change, so without this a re-render or a second submit would report the
+  // same order twice and inflate the client's ad ROAS.
+  const purchaseTracked = useRef(false);
   const [orderId, setOrderId] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", line1: "", area: "", city: "", state: "Dhaka", country: "Bangladesh" });
   const [payMethod, setPayMethod] = useState("cod");
@@ -271,6 +276,11 @@ export default function CheckoutPage() {
     if (r.ok) {
       const data = await r.json();
       setOrderId(data.id || "");
+      if (!purchaseTracked.current) {
+        purchaseTracked.current = true;
+        // Read before clear() — the cart is emptied on the next line.
+        trackPurchase({ value: total, items, eventId: data.id });
+      }
       clear();
       setDone(true);
       return;

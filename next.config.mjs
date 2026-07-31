@@ -39,7 +39,9 @@ const turbopackRoot = detectTurbopackRoot();
 //  - connect-src includes Upstash + Cloudinary direct uploads.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vercel.live",
+  // connect.facebook.net serves the Meta Pixel's fbevents.js; without it the
+  // browser blocks the pixel outright and it fails silently.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vercel.live https://connect.facebook.net",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' https: data: blob:",

@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import ScrollToTop from "../components/ScrollToTop";
 import ChromeGate from "../components/ChromeGate";
 import MobileBottomNav from "../components/MobileBottomNav";
+import FacebookPixel from "../components/FacebookPixel";
 import { getStoreSettings } from "../lib/settings";
 
 // Performance: explicit display:"swap" so text paints with the system fallback
@@ -46,6 +47,7 @@ export default async function RootLayout({ children }) {
           <ChromeGate><ScrollToTop /></ChromeGate>
           <ChromeGate><MobileBottomNav /></ChromeGate>
         </Providers>
+        <FacebookPixel />
       </body>
     </html>
   );
