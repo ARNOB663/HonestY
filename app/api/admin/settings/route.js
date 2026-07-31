@@ -52,6 +52,7 @@ export const PUT = withAdmin(async ({ body }) => {
     currency: str(body.currency, 10) || "BDT",
     taxRate: nonNeg(body.taxRate),
     announcement: str(body.announcement, 300),
+    deliveryNote: str(body.deliveryNote, 120),
 
     flatShippingRate: nonNeg(body.flatShippingRate),
     freeShippingThreshold: nonNeg(body.freeShippingThreshold),

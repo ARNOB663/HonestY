@@ -62,6 +62,7 @@ export default function SettingsForm({ initial }) {
     currency: initial?.currency || "BDT",
     taxRate: initial?.taxRate ?? 0,
     announcement: initial?.announcement || "",
+    deliveryNote: initial?.deliveryNote || "",
 
     flatShippingRate: initial?.flatShippingRate ?? 80,
     freeShippingThreshold: initial?.freeShippingThreshold ?? 2000,
@@ -102,7 +103,7 @@ export default function SettingsForm({ initial }) {
     ]).map((n) => ({ label: n.label || "", href: n.href || "" })),
 
     trustBadges: (initial?.trustBadges?.length ? initial.trustBadges : [
-      { title: "Free shipping", sub: "On every order over ৳2,000", icon: "shipping" },
+      { title: "Free shipping", sub: "On every order over {freeShipping}", icon: "shipping" },
       { title: "7-day returns", sub: "Easy, no-questions-asked", icon: "returns" },
       { title: "Secure payments", sub: "Encrypted at every step", icon: "secure" },
       { title: "Honest support", sub: "Real humans, 7 days a week", icon: "support" },
@@ -222,7 +223,16 @@ export default function SettingsForm({ initial }) {
           <div>
             <label className={LABEL}>Announcement bar text</label>
             <input className={FIELD} value={form.announcement} onChange={set("announcement")} />
-            <p className="text-[11px] text-gray-500 mt-1">Top thin bar on every desktop page.</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Top thin bar on every desktop page. Use <code className="bg-gray-100 px-1 rounded">{"{freeShipping}"}</code> for
+              the live free-shipping threshold and <code className="bg-gray-100 px-1 rounded">{"{storeName}"}</code> for the
+              store name — they update on their own when you change those settings.
+            </p>
+          </div>
+          <div>
+            <label className={LABEL}>Delivery speed note</label>
+            <input className={FIELD} value={form.deliveryNote} onChange={set("deliveryNote")} placeholder="Chattogram same-day, others 2-3d" />
+            <p className="text-[11px] text-gray-500 mt-1">Shown under &ldquo;Fast Delivery&rdquo; on every product page.</p>
           </div>
         </section>
       )}

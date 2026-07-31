@@ -1,3 +1,5 @@
+import { applyStoreTokens } from "../lib/format";
+
 const ICONS = {
   shipping: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
@@ -43,14 +45,19 @@ const ICONS = {
 };
 
 const DEFAULT_BADGES = [
-  { title: "Free shipping", sub: "On every order over ৳2,000", icon: "shipping" },
+  { title: "Free shipping", sub: "On every order over {freeShipping}", icon: "shipping" },
   { title: "7-day returns", sub: "Easy, no-questions-asked", icon: "returns" },
   { title: "Secure payments", sub: "Encrypted at every step", icon: "secure" },
   { title: "Honest support", sub: "Real humans, 7 days a week", icon: "support" },
 ];
 
-export default function TrustBadges({ badges }) {
-  const list = Array.isArray(badges) && badges.length ? badges : DEFAULT_BADGES;
+// `settings` is optional: without it, {tokens} in badge copy are left as-is
+// rather than rendering a wrong number.
+export default function TrustBadges({ badges, settings }) {
+  const source = Array.isArray(badges) && badges.length ? badges : DEFAULT_BADGES;
+  const list = settings
+    ? source.map((b) => ({ ...b, sub: applyStoreTokens(b.sub, settings), title: applyStoreTokens(b.title, settings) }))
+    : source;
   return (
     <section className="bg-white border-y border-[#e8e4d8]">
       <div className="max-w-7xl mx-auto px-4 py-10">

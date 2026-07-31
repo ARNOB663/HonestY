@@ -128,7 +128,7 @@ export default async function ProductPage({ params }) {
               : { icon: "🚚", title: "Nationwide Delivery", sub: "Across Bangladesh" },
             { icon: "↩️", title: "7-Day Returns", sub: "Hassle-free policy" },
             { icon: "🛡️", title: "Quality Assured", sub: "From local makers" },
-            { icon: "⚡", title: "Fast Delivery", sub: "Dhaka same-day, others 2-3d" },
+            { icon: "⚡", title: "Fast Delivery", sub: settings.deliveryNote || "Nationwide, 2-3 days" },
           ].map((f) => (
             <div key={f.title} className="flex items-start gap-2.5 border border-[#e5e7eb] rounded p-3">
               <span className="text-xl">{f.icon}</span>

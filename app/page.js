@@ -92,7 +92,7 @@ export default async function Home() {
       </section>
 
       {/* 4. TRUST BADGES — always after products, regardless of sale availability */}
-      <TrustBadges badges={settings.trustBadges} />
+      <TrustBadges badges={settings.trustBadges} settings={settings} />
 
       {/* 5. FAVOURITES */}
       {featured.length > 0 && (

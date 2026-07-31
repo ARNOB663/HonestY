@@ -227,6 +227,9 @@ model Settings {
   currency              String   @default("BDT")
   taxRate               Float    @default(0)
   announcement          String?  @db.Text
+  // Short delivery-speed line shown on product pages, e.g. "Chattogram
+  // same-day, others 2-3d". Editable so it isn't hardcoded to one city.
+  deliveryNote          String?
 
   // Shipping
   // Per-division rates, e.g. { "Chattogram": 60, "Dhaka": 120 }. Keyed by the
