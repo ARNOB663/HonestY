@@ -28,20 +28,12 @@ function cleanArray(arr, mapFn, max = 20) {
 
 const VALID_ICONS = new Set(["shipping", "returns", "secure", "support", "leaf", "phone", "shield", "star"]);
 
-// Per-division shipping rates. Only keys from BD_DIVISIONS are accepted, so a
-// crafted request can't stuff arbitrary data into the JSON column. A blank
-// field means "no rate set" and is dropped, letting that division fall back to
-// the legacy rate; an explicit 0 is kept and means free delivery.
-function cleanShippingZones(v) {
-  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
-  const out = {};
-  for (const name of BD_DIVISIONS) {
-    const raw = v[name];
-    if (raw === "" || raw === null || raw === undefined) continue;
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 0) out[name] = n;
-  }
-  return out;
+// The home division must be one of the known divisions — it is compared against
+// the address division at checkout, so a free-text value would silently make
+// every order "outside" and overcharge.
+function division(v) {
+  const wanted = String(v ?? "").trim().toLowerCase();
+  return BD_DIVISIONS.find((d) => d.toLowerCase() === wanted) || "Chattogram";
 }
 
 export const PUT = withAdmin(async ({ body }) => {
@@ -56,7 +48,8 @@ export const PUT = withAdmin(async ({ body }) => {
 
     flatShippingRate: nonNeg(body.flatShippingRate),
     freeShippingThreshold: nonNeg(body.freeShippingThreshold),
-    dhakaShippingRate: nonNeg(body.dhakaShippingRate),
+    homeDivision: division(body.homeDivision),
+    localShippingRate: nonNeg(body.localShippingRate),
     outsideShippingRate: nonNeg(body.outsideShippingRate),
 
     bkashNumber: str(body.bkashNumber, 20),
@@ -87,9 +80,6 @@ export const PUT = withAdmin(async ({ body }) => {
     footerFacebook: str(body.footerFacebook, 200),
     footerWhatsapp: str(body.footerWhatsapp, 30),
   };
-
-  const shippingZones = cleanShippingZones(body.shippingZones);
-  if (shippingZones) update.shippingZones = shippingZones;
 
   const trustBadges = cleanArray(body.trustBadges, (b) => ({
     title: str(b?.title, 80),

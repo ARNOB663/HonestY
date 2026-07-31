@@ -6,7 +6,7 @@ import { getProductBySlug, getCollection, getRelatedProducts } from "../../../li
 import { getStoreSettings } from "../../../lib/settings";
 import ProductCard from "../../../components/ProductCard";
 import RecentlyViewed from "../../../components/RecentlyViewed";
-import { formatMoney } from "../../../lib/format";
+import { formatMoney, applyStoreTokens } from "../../../lib/format";
 import { getBaseUrl } from "../../../lib/baseUrl";
 import { sanitizePageBody } from "../../../lib/sanitize";
 
@@ -128,7 +128,7 @@ export default async function ProductPage({ params }) {
               : { icon: "🚚", title: "Nationwide Delivery", sub: "Across Bangladesh" },
             { icon: "↩️", title: "7-Day Returns", sub: "Hassle-free policy" },
             { icon: "🛡️", title: "Quality Assured", sub: "From local makers" },
-            { icon: "⚡", title: "Fast Delivery", sub: settings.deliveryNote || "Nationwide, 2-3 days" },
+            { icon: "⚡", title: "Fast Delivery", sub: applyStoreTokens(settings.deliveryNote, settings) || "Nationwide, 2-3 days" },
           ].map((f) => (
             <div key={f.title} className="flex items-start gap-2.5 border border-[#e5e7eb] rounded p-3">
               <span className="text-xl">{f.icon}</span>

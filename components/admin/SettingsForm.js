@@ -66,16 +66,9 @@ export default function SettingsForm({ initial }) {
 
     flatShippingRate: initial?.flatShippingRate ?? 80,
     freeShippingThreshold: initial?.freeShippingThreshold ?? 2000,
-    dhakaShippingRate: initial?.dhakaShippingRate ?? 60,
+    homeDivision: initial?.homeDivision || "Chattogram",
+    localShippingRate: initial?.localShippingRate ?? 60,
     outsideShippingRate: initial?.outsideShippingRate ?? 120,
-    // Held as strings so a cleared box stays empty instead of snapping to 0 —
-    // empty means "no rate for this division", which is not the same as free.
-    shippingZones: Object.fromEntries(
-      BD_DIVISIONS.map((d) => {
-        const v = initial?.shippingZones?.[d];
-        return [d, v === 0 || v ? String(v) : ""];
-      })
-    ),
 
     bkashNumber: initial?.bkashNumber || "",
     nagadNumber: initial?.nagadNumber || "",
@@ -158,8 +151,6 @@ export default function SettingsForm({ initial }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setNum = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const setZone = (division) => (e) =>
-    setForm((f) => ({ ...f, shippingZones: { ...f.shippingZones, [division]: e.target.value } }));
   const setBool = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
 
   function updateItem(listKey, idx, patch) {
@@ -225,14 +216,15 @@ export default function SettingsForm({ initial }) {
             <input className={FIELD} value={form.announcement} onChange={set("announcement")} />
             <p className="text-[11px] text-gray-500 mt-1">
               Top thin bar on every desktop page. Use <code className="bg-gray-100 px-1 rounded">{"{freeShipping}"}</code> for
-              the live free-shipping threshold and <code className="bg-gray-100 px-1 rounded">{"{storeName}"}</code> for the
-              store name — they update on their own when you change those settings.
+              the live threshold, <code className="bg-gray-100 px-1 rounded">{"{homeDivision}"}</code> for the division you
+              ship from, and <code className="bg-gray-100 px-1 rounded">{"{storeName}"}</code> for the store name — they
+              update on their own when you change those settings.
             </p>
           </div>
           <div>
             <label className={LABEL}>Delivery speed note</label>
-            <input className={FIELD} value={form.deliveryNote} onChange={set("deliveryNote")} placeholder="Chattogram same-day, others 2-3d" />
-            <p className="text-[11px] text-gray-500 mt-1">Shown under &ldquo;Fast Delivery&rdquo; on every product page.</p>
+            <input className={FIELD} value={form.deliveryNote} onChange={set("deliveryNote")} placeholder="{homeDivision} same-day, others 2-3d" />
+            <p className="text-[11px] text-gray-500 mt-1">Shown under &ldquo;Fast Delivery&rdquo; on every product page. Same tokens work here.</p>
           </div>
         </section>
       )}
@@ -241,44 +233,30 @@ export default function SettingsForm({ initial }) {
         <section className={SECTION}>
           <h2 className="font-semibold">Shipping & tax</h2>
 
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-sm font-medium">Rate per division</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                The rate charged when the customer&apos;s delivery address is in that division. Set your own
-                division lowest — that&apos;s your local delivery. Leave a box <strong>empty</strong> to fall back
-                to the legacy rates below; enter <strong>0</strong> to make delivery there free.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {BD_DIVISIONS.map((division) => (
-                <div key={division}>
-                  <label className={LABEL}>{division} (৳)</label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    placeholder="—"
-                    className={FIELD}
-                    value={form.shippingZones[division] ?? ""}
-                    onChange={setZone(division)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-xs text-gray-500 border-t border-gray-100 pt-4">
-            Fallbacks, used only for divisions left empty above. Free shipping overrides every rate.
+          <p className="text-xs text-gray-500">
+            Pick the division you ship from. Addresses inside it pay the local rate; everywhere else pays
+            the outside rate. Free shipping overrides both. Every label below and the storefront copy
+            follow this choice, so changing it is all you need when you relocate.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>Legacy Dhaka rate (৳)</label>
-              <input type="number" step="1" className={FIELD} value={form.dhakaShippingRate} onChange={setNum("dhakaShippingRate")} />
+              <label className={LABEL}>We ship from</label>
+              <select className={FIELD} value={form.homeDivision} onChange={set("homeDivision")}>
+                {BD_DIVISIONS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div />
+            <div>
+              <label className={LABEL}>Inside {form.homeDivision} (৳)</label>
+              <input type="number" step="1" min="0" className={FIELD} value={form.localShippingRate} onChange={setNum("localShippingRate")} />
+              <p className="text-[11px] text-gray-500 mt-1">Your local delivery rate. 0 makes it free.</p>
             </div>
             <div>
-              <label className={LABEL}>Legacy outside-Dhaka rate (৳)</label>
-              <input type="number" step="1" className={FIELD} value={form.outsideShippingRate} onChange={setNum("outsideShippingRate")} />
+              <label className={LABEL}>Outside {form.homeDivision} (৳)</label>
+              <input type="number" step="1" min="0" className={FIELD} value={form.outsideShippingRate} onChange={setNum("outsideShippingRate")} />
+              <p className="text-[11px] text-gray-500 mt-1">Charged for every other division.</p>
             </div>
             <div>
               <label className={LABEL}>Free shipping over (৳)</label>
@@ -286,8 +264,9 @@ export default function SettingsForm({ initial }) {
               <p className="text-[11px] text-gray-500 mt-1">Set to 0 to disable free shipping.</p>
             </div>
             <div>
-              <label className={LABEL}>Legacy flat shipping (fallback)</label>
+              <label className={LABEL}>Flat rate (fallback)</label>
               <input type="number" step="1" className={FIELD} value={form.flatShippingRate} onChange={setNum("flatShippingRate")} />
+              <p className="text-[11px] text-gray-500 mt-1">Shown in the cart before an address is entered.</p>
             </div>
             <div>
               <label className={LABEL}>Tax rate (%)</label>
