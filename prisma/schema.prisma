@@ -229,6 +229,11 @@ model Settings {
   announcement          String?  @db.Text
 
   // Shipping
+  // Per-division rates, e.g. { "Chattogram": 60, "Dhaka": 120 }. Keyed by the
+  // names in BD_DIVISIONS (lib/format.js), which is also what checkout stores
+  // as the address division. Divisions left out fall back to the legacy pair
+  // below.
+  shippingZones         Json?
   dhakaShippingRate     Float    @default(60)
   outsideShippingRate   Float    @default(120)
   flatShippingRate      Float    @default(80)

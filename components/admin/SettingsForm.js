@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MediaPickerModal from "./MediaPickerModal";
+import { BD_DIVISIONS } from "../../lib/format";
 
 const FIELD = "w-full border border-gray-300 rounded px-3 py-2 text-sm";
 const LABEL = "block text-xs uppercase tracking-wide text-gray-600 mb-1";
@@ -66,6 +67,14 @@ export default function SettingsForm({ initial }) {
     freeShippingThreshold: initial?.freeShippingThreshold ?? 2000,
     dhakaShippingRate: initial?.dhakaShippingRate ?? 60,
     outsideShippingRate: initial?.outsideShippingRate ?? 120,
+    // Held as strings so a cleared box stays empty instead of snapping to 0 —
+    // empty means "no rate for this division", which is not the same as free.
+    shippingZones: Object.fromEntries(
+      BD_DIVISIONS.map((d) => {
+        const v = initial?.shippingZones?.[d];
+        return [d, v === 0 || v ? String(v) : ""];
+      })
+    ),
 
     bkashNumber: initial?.bkashNumber || "",
     nagadNumber: initial?.nagadNumber || "",
@@ -148,6 +157,8 @@ export default function SettingsForm({ initial }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setNum = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setZone = (division) => (e) =>
+    setForm((f) => ({ ...f, shippingZones: { ...f.shippingZones, [division]: e.target.value } }));
   const setBool = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
 
   function updateItem(listKey, idx, patch) {
@@ -219,17 +230,44 @@ export default function SettingsForm({ initial }) {
       {tab === "shipping" && (
         <section className={SECTION}>
           <h2 className="font-semibold">Shipping & tax</h2>
-          <p className="text-xs text-gray-500">
-            Zone rates take precedence at checkout. Customers in Dhaka division pay the Dhaka rate; everyone else pays the Outside rate.
-            The legacy flat rate is used only when zones aren&apos;t set up.
+
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium">Rate per division</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                The rate charged when the customer&apos;s delivery address is in that division. Set your own
+                division lowest — that&apos;s your local delivery. Leave a box <strong>empty</strong> to fall back
+                to the legacy rates below; enter <strong>0</strong> to make delivery there free.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {BD_DIVISIONS.map((division) => (
+                <div key={division}>
+                  <label className={LABEL}>{division} (৳)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="—"
+                    className={FIELD}
+                    value={form.shippingZones[division] ?? ""}
+                    onChange={setZone(division)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 border-t border-gray-100 pt-4">
+            Fallbacks, used only for divisions left empty above. Free shipping overrides every rate.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>Dhaka shipping rate (৳)</label>
+              <label className={LABEL}>Legacy Dhaka rate (৳)</label>
               <input type="number" step="1" className={FIELD} value={form.dhakaShippingRate} onChange={setNum("dhakaShippingRate")} />
             </div>
             <div>
-              <label className={LABEL}>Outside Dhaka shipping rate (৳)</label>
+              <label className={LABEL}>Legacy outside-Dhaka rate (৳)</label>
               <input type="number" step="1" className={FIELD} value={form.outsideShippingRate} onChange={setNum("outsideShippingRate")} />
             </div>
             <div>

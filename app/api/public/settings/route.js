@@ -14,6 +14,7 @@ export async function GET() {
     freeShippingThreshold: Number(s.freeShippingThreshold) || 0,
     dhakaShippingRate: Number(s.dhakaShippingRate) || 0,
     outsideShippingRate: Number(s.outsideShippingRate) || 0,
+    shippingZones: s.shippingZones && typeof s.shippingZones === "object" ? s.shippingZones : {},
     bkashNumber: s.bkashNumber || "",
     nagadNumber: s.nagadNumber || "",
     enableBkash: s.enableBkash !== false,

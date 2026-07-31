@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { withAdmin } from "../../../../lib/withAdmin";
 import { prisma } from "../../../../lib/db";
+import { BD_DIVISIONS } from "../../../../lib/format";
 
 function bustStorefrontFromSettings() {
   try {
@@ -26,6 +27,22 @@ function cleanArray(arr, mapFn, max = 20) {
 }
 
 const VALID_ICONS = new Set(["shipping", "returns", "secure", "support", "leaf", "phone", "shield", "star"]);
+
+// Per-division shipping rates. Only keys from BD_DIVISIONS are accepted, so a
+// crafted request can't stuff arbitrary data into the JSON column. A blank
+// field means "no rate set" and is dropped, letting that division fall back to
+// the legacy rate; an explicit 0 is kept and means free delivery.
+function cleanShippingZones(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const out = {};
+  for (const name of BD_DIVISIONS) {
+    const raw = v[name];
+    if (raw === "" || raw === null || raw === undefined) continue;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) out[name] = n;
+  }
+  return out;
+}
 
 export const PUT = withAdmin(async ({ body }) => {
   const update = {
@@ -69,6 +86,9 @@ export const PUT = withAdmin(async ({ body }) => {
     footerFacebook: str(body.footerFacebook, 200),
     footerWhatsapp: str(body.footerWhatsapp, 30),
   };
+
+  const shippingZones = cleanShippingZones(body.shippingZones);
+  if (shippingZones) update.shippingZones = shippingZones;
 
   const trustBadges = cleanArray(body.trustBadges, (b) => ({
     title: str(b?.title, 80),
